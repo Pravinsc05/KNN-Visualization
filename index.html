@@ -1,0 +1,3259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KNN LAB — Teach a Machine to Recognize Patterns</title>
+  <style>
+    /* ----------------------------------------------------
+       CSS RESET & BASE STYLES
+       ---------------------------------------------------- */
+    :root {
+      --bg-dark: #070913;
+      --bg-card: rgba(15, 23, 42, 0.75);
+      --bg-card-hover: rgba(30, 41, 59, 0.85);
+      --border-glow: rgba(56, 189, 248, 0.25);
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --cyan: #06b6d4;
+      --cyan-glow: #22d3ee;
+      --blue: #3b82f6;
+      --purple: #a855f7;
+      --purple-glow: #c084fc;
+      --orange: #f97316;
+      --orange-glow: #fb923c;
+      --green: #10b981;
+      --red: #ef4444;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --font-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+      --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, ::before, ::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      line-height: 1.6;
+      overflow-x: hidden;
+      position: relative;
+      min-height: 100vh;
+      scroll-behavior: smooth;
+    }
+
+    /* Subtle grid background */
+    body::before {
+      content: "";
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background-image: 
+        linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: -2;
+    }
+
+    /* Ambient background gradient orbs */
+    #ambient-canvas {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+      z-index: -1;
+      opacity: 0.45;
+    }
+
+    a {
+      color: var(--cyan);
+      text-decoration: none;
+      transition: var(--transition);
+    }
+    a:hover {
+      text-decoration: underline;
+      color: var(--cyan-glow);
+    }
+
+    a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible {
+      outline: 2px solid var(--cyan-glow);
+      outline-offset: 3px;
+    }
+
+    /* ----------------------------------------------------
+       TYPOGRAPHY & UTILITIES
+       ---------------------------------------------------- */
+    .container {
+      width: 92%;
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 0 1rem;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.25rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      background: rgba(56, 189, 248, 0.1);
+      border: 1px solid var(--border-glow);
+      color: var(--cyan-glow);
+    }
+
+    .section-title {
+      font-size: 2.2rem;
+      font-weight: 800;
+      margin-bottom: 0.75rem;
+      background: linear-gradient(135deg, #fff 30%, var(--cyan-glow) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: -0.02em;
+    }
+
+    .section-subtitle {
+      color: var(--text-muted);
+      font-size: 1.05rem;
+      max-width: 700px;
+      margin-bottom: 2.5rem;
+    }
+
+    .glass-card {
+      background: var(--bg-card);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+      padding: 1.5rem;
+      box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+      transition: var(--transition);
+    }
+    .glass-card:hover {
+      border-color: var(--border-glow);
+      box-shadow: 0 14px 40px -10px rgba(6, 182, 212, 0.15);
+    }
+
+    /* ----------------------------------------------------
+       NAVBAR
+       ---------------------------------------------------- */
+    header.navbar {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(7, 9, 19, 0.8);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .nav-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 70px;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 1.35rem;
+      font-weight: 800;
+      letter-spacing: -0.01em;
+      color: white;
+    }
+    .logo-icon {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, var(--cyan), var(--purple));
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      box-shadow: 0 0 15px rgba(6, 182, 212, 0.6);
+    }
+
+    .nav-links {
+      display: flex;
+      list-style: none;
+      gap: 1.5rem;
+    }
+
+    .nav-links a {
+      color: var(--text-muted);
+      font-weight: 500;
+      font-size: 0.95rem;
+      padding: 0.5rem 0.75rem;
+      border-radius: 8px;
+      transition: var(--transition);
+    }
+
+    .nav-links a:hover {
+      color: white;
+      text-decoration: none;
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .btn-nav {
+      background: linear-gradient(135deg, var(--cyan), var(--blue));
+      color: white !important;
+      font-weight: 600;
+      border-radius: 8px;
+      box-shadow: 0 0 15px rgba(6, 182, 212, 0.4);
+    }
+    .btn-nav:hover {
+      box-shadow: 0 0 20px rgba(6, 182, 212, 0.7);
+      transform: translateY(-1px);
+    }
+
+    /* ----------------------------------------------------
+       HERO / LANDING SECTION
+       ---------------------------------------------------- */
+    .hero {
+      padding: 5rem 0 4rem;
+      position: relative;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 3.5rem;
+      align-items: center;
+    }
+
+    .hero-content h1 {
+      font-size: 3.4rem;
+      font-weight: 900;
+      line-height: 1.15;
+      margin: 1rem 0 1.25rem;
+      letter-spacing: -0.03em;
+    }
+    .hero-content h1 span.accent {
+      background: linear-gradient(135deg, var(--cyan-glow), var(--purple-glow));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero-content p.subtitle {
+      font-size: 1.3rem;
+      color: #cbd5e1;
+      font-weight: 500;
+      margin-bottom: 0.75rem;
+    }
+
+    .hero-content p.desc {
+      color: var(--text-muted);
+      font-size: 1.05rem;
+      margin-bottom: 2rem;
+      max-width: 540px;
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.85rem 1.75rem;
+      background: linear-gradient(135deg, var(--cyan), var(--purple));
+      color: white;
+      font-weight: 700;
+      font-size: 1.05rem;
+      border-radius: 12px;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 0 25px rgba(168, 85, 247, 0.4);
+      transition: var(--transition);
+      text-decoration: none;
+    }
+    .btn-primary:hover {
+      box-shadow: 0 0 35px rgba(6, 182, 212, 0.7);
+      transform: translateY(-2px);
+      text-decoration: none;
+      color: white;
+    }
+
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.85rem 1.5rem;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-subtle);
+      color: white;
+      font-weight: 600;
+      font-size: 1rem;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: var(--transition);
+      text-decoration: none;
+    }
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255, 255, 255, 0.2);
+      text-decoration: none;
+      color: white;
+    }
+
+    .hero-canvas-card {
+      position: relative;
+      height: 380px;
+      border-radius: 20px;
+      overflow: hidden;
+      border: 1px solid var(--border-glow);
+      background: radial-gradient(circle at center, rgba(30, 41, 59, 0.8), #090d1a);
+      box-shadow: 0 20px 50px -10px rgba(6, 182, 212, 0.25);
+    }
+    #hero-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    .hero-canvas-label {
+      position: absolute;
+      bottom: 12px;
+      left: 16px;
+      right: 16px;
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      background: rgba(15, 23, 42, 0.8);
+      backdrop-filter: blur(8px);
+      padding: 6px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border-subtle);
+    }
+
+    /* Three Hero Pillars */
+    .hero-pillars {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.5rem;
+      margin-top: 4rem;
+    }
+    .pillar-card {
+      padding: 1.5rem;
+      border-radius: 14px;
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid var(--border-subtle);
+      transition: var(--transition);
+      position: relative;
+      overflow: hidden;
+    }
+    .pillar-card::before {
+      content: "";
+      position: absolute;
+      top: 0; left: 0; width: 4px; height: 100%;
+      background: var(--cyan);
+      opacity: 0.7;
+    }
+    .pillar-card:nth-child(2)::before { background: var(--purple); }
+    .pillar-card:nth-child(3)::before { background: var(--orange); }
+
+    .pillar-card:hover {
+      transform: translateY(-3px);
+      border-color: var(--border-glow);
+      background: rgba(22, 33, 58, 0.7);
+    }
+    .pillar-card h3 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .pillar-card p {
+      color: var(--text-muted);
+      font-size: 0.92rem;
+    }
+
+    /* ----------------------------------------------------
+       PLAYGROUND SECTION
+       ---------------------------------------------------- */
+    #playground {
+      padding: 4.5rem 0 3rem;
+      position: relative;
+    }
+
+    /* Live Dashboard Summary Bar */
+    .dashboard-bar {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .dash-stat {
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 0.9rem 1.1rem;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+    }
+    .dash-stat::after {
+      content: "";
+      position: absolute;
+      bottom: 0; left: 0; right: 0; height: 2px;
+      background: transparent;
+    }
+    .dash-stat.a::after { background: var(--blue); }
+    .dash-stat.b::after { background: var(--orange); }
+    .dash-stat.pred::after { background: var(--purple); }
+
+    .dash-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+    .dash-value {
+      font-size: 1.55rem;
+      font-weight: 800;
+      color: white;
+      margin-top: 0.15rem;
+      font-family: var(--font-mono);
+    }
+    .dash-sub {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 0.1rem;
+    }
+
+    /* Playground Main Layout */
+    .playground-grid {
+      display: grid;
+      grid-template-columns: 290px 1fr 340px;
+      gap: 1.25rem;
+      align-items: start;
+    }
+
+    /* Control Panel */
+    .control-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 1.2rem;
+    }
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+    }
+    .control-label {
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: #cbd5e1;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* Mode selector tabs */
+    .mode-buttons {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 0.4rem;
+    }
+    .mode-btn {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.65rem 0.85rem;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-muted);
+      font-weight: 600;
+      font-size: 0.88rem;
+      cursor: pointer;
+      transition: var(--transition);
+      text-align: left;
+    }
+    .mode-btn:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: white;
+    }
+    .mode-btn.active {
+      background: rgba(6, 182, 212, 0.15);
+      border-color: var(--cyan);
+      color: white;
+      box-shadow: 0 0 12px rgba(6, 182, 212, 0.25);
+    }
+    .mode-btn.mode-a.active {
+      background: rgba(59, 130, 246, 0.18);
+      border-color: var(--blue);
+      box-shadow: 0 0 12px rgba(59, 130, 246, 0.3);
+    }
+    .mode-btn.mode-b.active {
+      background: rgba(249, 115, 22, 0.18);
+      border-color: var(--orange);
+      box-shadow: 0 0 12px rgba(249, 115, 22, 0.3);
+    }
+    .mode-btn.mode-test.active {
+      background: rgba(168, 85, 247, 0.18);
+      border-color: var(--purple);
+      box-shadow: 0 0 12px rgba(168, 85, 247, 0.3);
+    }
+
+    .mode-icon {
+      width: 14px;
+      height: 14px;
+      display: inline-block;
+      border-radius: 50%;
+    }
+    .icon-circle-a {
+      background: var(--blue);
+      border: 2px solid #93c5fd;
+      border-radius: 50%;
+    }
+    .icon-triangle-b {
+      width: 0; height: 0;
+      border-left: 7px solid transparent;
+      border-right: 7px solid transparent;
+      border-bottom: 12px solid var(--orange);
+      border-radius: 0;
+    }
+    .icon-diamond-test {
+      width: 11px; height: 11px;
+      background: var(--purple-glow);
+      transform: rotate(45deg);
+      border-radius: 2px;
+      border: 1px solid #fff;
+    }
+
+    /* Range slider */
+    .slider-container {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+    .slider-track-wrap {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 6px;
+      border-radius: 3px;
+      background: #1e293b;
+      outline: none;
+      cursor: pointer;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: var(--cyan-glow);
+      box-shadow: 0 0 10px var(--cyan);
+      cursor: pointer;
+      transition: transform 0.1s ease;
+    }
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+    .slider-val-badge {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      color: var(--cyan-glow);
+      font-size: 1.1rem;
+      min-width: 28px;
+      text-align: right;
+    }
+
+    /* Metric Select */
+    select.custom-select {
+      width: 100%;
+      padding: 0.6rem 0.8rem;
+      background: #0f172a;
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      color: white;
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    select.custom-select:focus {
+      border-color: var(--cyan);
+    }
+
+    /* Action buttons grid */
+    .btn-action-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.5rem;
+    }
+    .btn-sm {
+      padding: 0.55rem 0.75rem;
+      font-size: 0.82rem;
+      font-weight: 600;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-subtle);
+      color: #e2e8f0;
+      cursor: pointer;
+      transition: var(--transition);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.35rem;
+    }
+    .btn-sm:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: var(--border-glow);
+      color: white;
+    }
+    .btn-sm.btn-danger:hover {
+      background: rgba(239, 68, 68, 0.2);
+      border-color: var(--red);
+      color: #fca5a5;
+    }
+    .btn-full {
+      grid-column: span 2;
+    }
+
+    /* Toggles */
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.45rem 0;
+      font-size: 0.88rem;
+      color: #cbd5e1;
+      cursor: pointer;
+    }
+    .toggle-switch {
+      position: relative;
+      display: inline-block;
+      width: 38px;
+      height: 22px;
+    }
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #1e293b;
+      transition: .3s;
+      border-radius: 22px;
+      border: 1px solid var(--border-subtle);
+    }
+    .toggle-slider:before {
+      position: absolute;
+      content: "";
+      height: 16px;
+      width: 16px;
+      left: 2px;
+      bottom: 2px;
+      background-color: #94a3b8;
+      transition: .3s;
+      border-radius: 50%;
+    }
+    input:checked + .toggle-slider {
+      background-color: var(--cyan);
+      box-shadow: 0 0 10px rgba(6, 182, 212, 0.5);
+    }
+    input:checked + .toggle-slider:before {
+      transform: translateX(16px);
+      background-color: white;
+    }
+
+    /* Canvas Central Area */
+    .canvas-wrapper {
+      position: relative;
+      width: 100%;
+      border-radius: 16px;
+      border: 1px solid var(--border-glow);
+      background: #090d19;
+      box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.8), 0 10px 30px -10px rgba(0, 0, 0, 0.6);
+      overflow: hidden;
+      aspect-ratio: 1 / 1;
+      max-height: 640px;
+      touch-action: none;
+    }
+    #knn-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      cursor: crosshair;
+    }
+    .canvas-overlay-tip {
+      position: absolute;
+      top: 10px;
+      left: 12px;
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(8px);
+      padding: 5px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border-subtle);
+      font-size: 0.74rem;
+      color: var(--text-muted);
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .canvas-boundary-spinner {
+      position: absolute;
+      bottom: 12px;
+      right: 12px;
+      background: rgba(15, 23, 42, 0.88);
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 0.72rem;
+      color: var(--cyan-glow);
+      border: 1px solid var(--border-glow);
+      display: none;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Legend bar under canvas */
+    .canvas-legend {
+      display: flex;
+      justify-content: center;
+      gap: 1.5rem;
+      margin-top: 0.75rem;
+      font-size: 0.84rem;
+      flex-wrap: wrap;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      color: #cbd5e1;
+    }
+
+    /* Prediction & Neighbors Panel */
+    .results-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 1.2rem;
+    }
+
+    .prediction-card {
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid var(--border-subtle);
+      border-radius: 14px;
+      padding: 1.25rem;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+      transition: var(--transition);
+    }
+    .prediction-card.pred-a {
+      border-color: var(--blue);
+      box-shadow: 0 0 25px rgba(59, 130, 246, 0.2);
+    }
+    .prediction-card.pred-b {
+      border-color: var(--orange);
+      box-shadow: 0 0 25px rgba(249, 115, 22, 0.2);
+    }
+    .prediction-card.pred-none {
+      border-color: var(--border-subtle);
+    }
+
+    .pred-header {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      font-weight: 700;
+    }
+    .pred-result {
+      font-size: 1.8rem;
+      font-weight: 900;
+      margin: 0.35rem 0;
+      letter-spacing: -0.01em;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+    .pred-result.a { color: #60a5fa; }
+    .pred-result.b { color: #fb923c; }
+    .pred-result.none { color: var(--text-muted); font-size: 1.3rem; }
+
+    .pred-votes-bar {
+      height: 8px;
+      width: 100%;
+      background: #1e293b;
+      border-radius: 4px;
+      overflow: hidden;
+      display: flex;
+      margin: 0.65rem 0 0.3rem;
+    }
+    .pred-votes-fill-a {
+      background: var(--blue);
+      transition: width 0.3s ease;
+    }
+    .pred-votes-fill-b {
+      background: var(--orange);
+      transition: width 0.3s ease;
+    }
+    .pred-vote-counts {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.76rem;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+    }
+
+    /* Neighbor distance table */
+    .table-container {
+      max-height: 250px;
+      overflow-y: auto;
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      background: rgba(10, 15, 30, 0.6);
+    }
+    .table-container::-webkit-scrollbar {
+      width: 6px;
+    }
+    .table-container::-webkit-scrollbar-thumb {
+      background: #1e293b;
+      border-radius: 3px;
+    }
+    table.neighbor-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.78rem;
+      text-align: left;
+    }
+    table.neighbor-table th {
+      position: sticky;
+      top: 0;
+      background: #0f172a;
+      padding: 0.5rem 0.6rem;
+      color: #94a3b8;
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 0.7rem;
+      letter-spacing: 0.05em;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    table.neighbor-table td {
+      padding: 0.45rem 0.6rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+      font-family: var(--font-mono);
+    }
+    table.neighbor-table tr.in-k {
+      background: rgba(6, 182, 212, 0.08);
+      font-weight: 600;
+    }
+    table.neighbor-table tr.in-k.class-a {
+      background: rgba(59, 130, 246, 0.12);
+    }
+    table.neighbor-table tr.in-k.class-b {
+      background: rgba(249, 115, 22, 0.12);
+    }
+    .tag-badge {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      font-weight: 700;
+    }
+    .tag-a { background: rgba(59, 130, 246, 0.2); color: #93c5fd; border: 1px solid rgba(59, 130, 246, 0.4); }
+    .tag-b { background: rgba(249, 115, 22, 0.2); color: #fdba74; border: 1px solid rgba(249, 115, 22, 0.4); }
+
+    /* Tie-breaker documentation box */
+    .tie-rule-box {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      background: rgba(255, 255, 255, 0.03);
+      border-left: 3px solid var(--cyan);
+      padding: 0.6rem 0.8rem;
+      border-radius: 0 8px 8px 0;
+      line-height: 1.4;
+    }
+    .tie-rule-box strong {
+      color: #e2e8f0;
+    }
+
+    /* ----------------------------------------------------
+       HOW THE MACHINE THINKS (5 Steps & Formulas)
+       ---------------------------------------------------- */
+    #how-it-works {
+      padding: 4.5rem 0 3rem;
+    }
+
+    .machine-steps-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 1rem;
+      margin-bottom: 2.5rem;
+    }
+    .step-card {
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid var(--border-subtle);
+      border-radius: 14px;
+      padding: 1.25rem 1rem;
+      position: relative;
+      transition: var(--transition);
+      display: flex;
+      flex-direction: column;
+    }
+    .step-card.active-step {
+      border-color: var(--cyan-glow);
+      background: rgba(6, 182, 212, 0.1);
+      box-shadow: 0 0 20px rgba(6, 182, 212, 0.25);
+      transform: translateY(-4px);
+    }
+    .step-num {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.1);
+      color: white;
+      font-weight: 800;
+      font-size: 0.75rem;
+      display: grid;
+      place-items: center;
+      margin-bottom: 0.6rem;
+      font-family: var(--font-mono);
+    }
+    .step-card.active-step .step-num {
+      background: var(--cyan);
+      color: black;
+      box-shadow: 0 0 10px var(--cyan);
+    }
+    .step-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: white;
+      margin-bottom: 0.4rem;
+    }
+    .step-desc {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      line-height: 1.4;
+      margin-bottom: 0.6rem;
+    }
+    .step-data-preview {
+      margin-top: auto;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      background: rgba(0, 0, 0, 0.4);
+      padding: 0.4rem 0.5rem;
+      border-radius: 6px;
+      color: var(--cyan-glow);
+      border: 1px dashed rgba(6, 182, 212, 0.3);
+      word-break: break-all;
+    }
+
+    /* Math Formula Deep Dive */
+    .math-section {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 1.5rem;
+      margin-top: 1.5rem;
+    }
+    .formula-box {
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid var(--border-subtle);
+      border-radius: 14px;
+      padding: 1.5rem;
+    }
+    .formula-display {
+      font-family: var(--font-mono);
+      font-size: 1.25rem;
+      color: var(--cyan-glow);
+      background: rgba(0, 0, 0, 0.5);
+      padding: 0.85rem 1.2rem;
+      border-radius: 10px;
+      border: 1px solid rgba(6, 182, 212, 0.3);
+      margin: 0.75rem 0 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+    .symbol-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.84rem;
+    }
+    .symbol-table td {
+      padding: 0.4rem 0.5rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    }
+    .symbol-name {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      color: var(--purple-glow);
+      width: 80px;
+    }
+
+    .worked-example-box {
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid var(--border-subtle);
+      border-radius: 14px;
+      padding: 1.5rem;
+      font-size: 0.88rem;
+    }
+    .calc-step {
+      margin-bottom: 0.6rem;
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      color: #cbd5e1;
+      background: rgba(0, 0, 0, 0.3);
+      padding: 0.4rem 0.6rem;
+      border-radius: 6px;
+    }
+
+    /* ----------------------------------------------------
+       EXPERIMENTS SECTION
+       ---------------------------------------------------- */
+    #experiments {
+      padding: 4.5rem 0 3rem;
+    }
+    .experiments-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.5rem;
+    }
+    .experiment-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+      transition: var(--transition);
+    }
+    .experiment-card:hover {
+      border-color: var(--border-glow);
+      transform: translateY(-3px);
+    }
+    .exp-badge {
+      align-self: flex-start;
+      margin-bottom: 0.75rem;
+    }
+    .experiment-card h3 {
+      font-size: 1.25rem;
+      font-weight: 800;
+      margin-bottom: 0.6rem;
+    }
+    .experiment-card p {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      margin-bottom: 1.25rem;
+      flex-grow: 1;
+    }
+    .exp-callout {
+      background: rgba(6, 182, 212, 0.08);
+      border-left: 3px solid var(--cyan);
+      padding: 0.6rem 0.75rem;
+      font-size: 0.8rem;
+      color: #cbd5e1;
+      border-radius: 0 6px 6px 0;
+      margin-bottom: 1.25rem;
+    }
+
+    /* ----------------------------------------------------
+       QUIZ SECTION
+       ---------------------------------------------------- */
+    #quiz {
+      padding: 4.5rem 0 3rem;
+    }
+    .quiz-card {
+      max-width: 760px;
+      margin: 0 auto;
+      background: var(--bg-card);
+      border: 1px solid var(--border-glow);
+      border-radius: 20px;
+      padding: 2.25rem;
+      box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.7);
+    }
+    .quiz-progress-bar {
+      height: 6px;
+      background: #1e293b;
+      border-radius: 3px;
+      margin-bottom: 1.5rem;
+      overflow: hidden;
+    }
+    .quiz-progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--cyan), var(--purple));
+      transition: width 0.3s ease;
+      width: 20%;
+    }
+    .quiz-meta {
+      display: flex;
+      justify-content: space-between;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin-bottom: 0.75rem;
+    }
+    .quiz-question {
+      font-size: 1.35rem;
+      font-weight: 800;
+      margin-bottom: 1.5rem;
+      line-height: 1.35;
+      color: white;
+    }
+    .quiz-options {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+    }
+    .quiz-opt-btn {
+      padding: 0.95rem 1.25rem;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-subtle);
+      color: #e2e8f0;
+      font-size: 0.95rem;
+      font-weight: 500;
+      text-align: left;
+      cursor: pointer;
+      transition: var(--transition);
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .quiz-opt-btn:hover:not(:disabled) {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+    .quiz-opt-btn.correct {
+      background: rgba(16, 185, 129, 0.2) !important;
+      border-color: var(--green) !important;
+      color: #6ee7b7 !important;
+    }
+    .quiz-opt-btn.incorrect {
+      background: rgba(239, 68, 68, 0.2) !important;
+      border-color: var(--red) !important;
+      color: #fca5a5 !important;
+    }
+    .quiz-opt-letter {
+      width: 26px;
+      height: 26px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.08);
+      display: grid;
+      place-items: center;
+      font-weight: 700;
+      font-size: 0.8rem;
+      font-family: var(--font-mono);
+    }
+
+    .quiz-feedback {
+      background: rgba(0, 0, 0, 0.4);
+      padding: 1rem 1.25rem;
+      border-radius: 10px;
+      border-left: 4px solid var(--cyan);
+      margin-bottom: 1.25rem;
+      font-size: 0.92rem;
+      display: none;
+      line-height: 1.5;
+    }
+    .quiz-actions {
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    /* Final quiz score summary */
+    .quiz-summary-box {
+      text-align: center;
+      padding: 1.5rem 0;
+    }
+    .score-circle {
+      width: 110px;
+      height: 110px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(6, 182, 212, 0.2), rgba(168, 85, 247, 0.2));
+      border: 3px solid var(--cyan);
+      box-shadow: 0 0 30px rgba(6, 182, 212, 0.4);
+      display: grid;
+      place-items: center;
+      margin: 0 auto 1.5rem;
+      font-size: 2.2rem;
+      font-weight: 900;
+      font-family: var(--font-mono);
+      color: white;
+    }
+
+    /* ----------------------------------------------------
+       EXTRA SECTIONS: REAL WORLD, LIMITATIONS, GLOSSARY
+       ---------------------------------------------------- */
+    .info-section {
+      padding: 4.5rem 0 3rem;
+    }
+    .two-col-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+    }
+    .app-card {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1.25rem;
+    }
+    .app-icon {
+      font-size: 1.5rem;
+      line-height: 1;
+    }
+    .app-content h4 {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: white;
+      margin-bottom: 0.2rem;
+    }
+    .app-content p {
+      font-size: 0.88rem;
+      color: var(--text-muted);
+    }
+
+    /* Glossary grid */
+    .glossary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1rem;
+      margin-top: 1.5rem;
+    }
+    .glossary-item {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 1rem 1.25rem;
+    }
+    .glossary-term {
+      font-weight: 700;
+      color: var(--cyan-glow);
+      font-size: 0.95rem;
+      margin-bottom: 0.35rem;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .glossary-def {
+      font-size: 0.84rem;
+      color: var(--text-muted);
+      line-height: 1.45;
+    }
+
+    /* ----------------------------------------------------
+       FOOTER
+       ---------------------------------------------------- */
+    footer {
+      border-top: 1px solid var(--border-subtle);
+      padding: 2.5rem 0;
+      margin-top: 5rem;
+      background: rgba(5, 7, 15, 0.9);
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      text-align: center;
+    }
+
+    /* ----------------------------------------------------
+       RESPONSIVENESS / MEDIA QUERIES
+       ---------------------------------------------------- */
+    @media (max-width: 1080px) {
+      .playground-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+      .canvas-wrapper {
+        grid-column: span 2;
+        order: -1;
+        max-height: 480px;
+      }
+      .machine-steps-grid {
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      }
+      .experiments-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .nav-links {
+        display: none; /* simple mobile view */
+      }
+      .hero-grid {
+        grid-template-columns: 1fr;
+        gap: 2rem;
+      }
+      .hero-content h1 {
+        font-size: 2.4rem;
+      }
+      .hero-pillars {
+        grid-template-columns: 1fr;
+      }
+      .playground-grid {
+        grid-template-columns: 1fr;
+      }
+      .canvas-wrapper {
+        grid-column: span 1;
+        aspect-ratio: 1 / 1;
+        max-height: 400px;
+      }
+      .two-col-grid {
+        grid-template-columns: 1fr;
+      }
+      .math-section {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Ambient background canvas for floating glowing particles -->
+  <canvas id="ambient-canvas"></canvas>
+
+  <!-- Navigation bar -->
+  <header class="navbar">
+    <div class="container nav-inner">
+      <div class="logo">
+        <div class="logo-icon">⚡</div>
+        <span>KNN <span style="color:var(--cyan-glow);">LAB</span></span>
+      </div>
+      <nav>
+        <ul class="nav-links">
+          <li><a href="#home">Home</a></li>
+          <li><a href="#playground">Playground</a></li>
+          <li><a href="#how-it-works">How It Works</a></li>
+          <li><a href="#experiments">Experiments</a></li>
+          <li><a href="#quiz">Quiz</a></li>
+          <li><a href="#playground" class="btn-nav">Launch Simulator</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <!-- HERO SECTION -->
+  <section id="home" class="hero">
+    <div class="container">
+      <div class="hero-grid">
+        <div class="hero-content">
+          <div class="badge">Computer Engineering Activity • Interactive ML</div>
+          <h1>KNN LAB: <span class="accent">Teach a Machine</span> to Recognize Patterns</h1>
+          <p class="subtitle">Explore how AI learns from neighboring data points and makes predictions.</p>
+          <p class="desc">
+            K-Nearest Neighbors is an intuitive yet foundational machine learning classification algorithm. 
+            Step directly into the machine's mind: place data points, adjust distance metrics, evaluate decision boundaries, and watch classification emerge live in real-time.
+          </p>
+          <div class="hero-actions">
+            <a href="#playground" class="btn-primary" id="btn-hero-start">
+              <span>Start Experiment</span>
+              <span>→</span>
+            </a>
+            <a href="#how-it-works" class="btn-secondary">
+              <span>View Mathematics</span>
+            </a>
+          </div>
+        </div>
+
+        <div class="hero-canvas-card">
+          <canvas id="hero-canvas"></canvas>
+          <div class="hero-canvas-label">
+            <span>● Synthetic Classification Field</span>
+            <span>Live Vector Space Animation</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Three Pillars of Learning Cards -->
+      <div class="hero-pillars">
+        <div class="pillar-card">
+          <h3><span>🏷️</span> Supervised Learning</h3>
+          <p>The algorithm learns from labeled training examples where each sample belongs to an established class (e.g. Class A or B) before classifying unlabelled query data.</p>
+        </div>
+        <div class="pillar-card">
+          <h3><span>🎯</span> Classification</h3>
+          <p>A core task of predicting discrete categorical labels rather than continuous numbers, categorizing new inputs based on shared geometric similarity.</p>
+        </div>
+        <div class="pillar-card">
+          <h3><span>📐</span> Distance-Based Learning</h3>
+          <p>KNN is non-parametric and lazy: no weights to train! It calculates geometric proximity in feature space to determine which samples are closest.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PLAYGROUND SECTION (MAIN INTERACTIVE) -->
+  <section id="playground">
+    <div class="container">
+      <div class="section-title">Interactive AI Playground</div>
+      <div class="section-subtitle">
+        Click to place points or drag existing points around. Change K and distance metrics to observe instantaneous real-time KNN classification.
+      </div>
+
+      <!-- Live Dashboard Bar -->
+      <div class="dashboard-bar">
+        <div class="dash-stat">
+          <span class="dash-label">Training Points</span>
+          <span class="dash-value" id="stat-total-points">0</span>
+          <span class="dash-sub">Samples on plot</span>
+        </div>
+        <div class="dash-stat a">
+          <span class="dash-label">Class A (Blue)</span>
+          <span class="dash-value" id="stat-class-a">0</span>
+          <span class="dash-sub">Circles</span>
+        </div>
+        <div class="dash-stat b">
+          <span class="dash-label">Class B (Orange)</span>
+          <span class="dash-value" id="stat-class-b">0</span>
+          <span class="dash-sub">Triangles</span>
+        </div>
+        <div class="dash-stat">
+          <span class="dash-label">Hyperparameter K</span>
+          <span class="dash-value" id="stat-k-val" style="color:var(--cyan-glow);">3</span>
+          <span class="dash-sub">Nearest neighbors</span>
+        </div>
+        <div class="dash-stat pred">
+          <span class="dash-label">Predicted Class</span>
+          <span class="dash-value" id="stat-predicted">—</span>
+          <span class="dash-sub" id="stat-votes-ratio">0 A vs 0 B</span>
+        </div>
+      </div>
+
+      <!-- Main Playground Grid: Controls, Canvas, Results -->
+      <div class="playground-grid">
+        
+        <!-- Controls Column -->
+        <div class="glass-card control-panel">
+          <div class="control-group">
+            <span class="control-label">Plotting Mode (Click Canvas)</span>
+            <div class="mode-buttons">
+              <button class="mode-btn mode-a active" data-mode="A" id="btn-mode-a">
+                <span class="mode-icon icon-circle-a"></span>
+                <span>Add Class A (Blue Circle)</span>
+              </button>
+              <button class="mode-btn mode-b" data-mode="B" id="btn-mode-b">
+                <span class="mode-icon icon-triangle-b"></span>
+                <span>Add Class B (Orange Triangle)</span>
+              </button>
+              <button class="mode-btn mode-test" data-mode="TEST" id="btn-mode-test">
+                <span class="mode-icon icon-diamond-test"></span>
+                <span>Place Test Point (Diamond)</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="control-group slider-container">
+            <div class="control-label">
+              <span>Neighbors Value (K)</span>
+              <span class="slider-val-badge" id="k-slider-val">3</span>
+            </div>
+            <div class="slider-track-wrap">
+              <input type="range" id="k-slider" min="1" max="15" step="1" value="3" aria-label="K parameter slider">
+            </div>
+          </div>
+
+          <div class="control-group">
+            <span class="control-label">Distance Metric</span>
+            <select class="custom-select" id="metric-select">
+              <option value="euclidean">Euclidean (L₂ Norm: Straight-line)</option>
+              <option value="manhattan">Manhattan (L₁ Norm: Grid-taxicab)</option>
+            </select>
+          </div>
+
+          <div class="control-group" style="padding-top: 0.25rem;">
+            <label class="toggle-row">
+              <span>Show Decision Boundary</span>
+              <div class="toggle-switch">
+                <input type="checkbox" id="toggle-boundary">
+                <span class="toggle-slider"></span>
+              </div>
+            </label>
+            <label class="toggle-row">
+              <span>Toggle Neighbor Lines</span>
+              <div class="toggle-switch">
+                <input type="checkbox" id="toggle-lines" checked>
+                <span class="toggle-slider"></span>
+              </div>
+            </label>
+          </div>
+
+          <div class="btn-action-grid">
+            <button class="btn-sm" id="btn-demo-data">✨ Demo Data</button>
+            <button class="btn-sm" id="btn-random-data">🎲 Randomize</button>
+            <button class="btn-sm" id="btn-undo-point">↩ Remove Last</button>
+            <button class="btn-sm btn-danger" id="btn-reset-train">🧹 Clear Data</button>
+            <button class="btn-sm btn-full btn-danger" id="btn-reset-all">⚠️ Reset All State</button>
+          </div>
+
+          <div class="tie-rule-box">
+            <strong>Tie-breaker Rule:</strong> If votes for Class A and B are equal, the class with the <em>smaller sum of neighbor distances</em> wins. If still tied, defaults to <em>Class A</em>.
+          </div>
+        </div>
+
+        <!-- Center Canvas Column -->
+        <div style="display: flex; flex-direction: column;">
+          <div class="canvas-wrapper" id="canvas-container">
+            <canvas id="knn-canvas" width="600" height="600"></canvas>
+            <div class="canvas-overlay-tip" id="canvas-status-tip">
+              <span>💡 Tip: Click to place • Drag any point to reposition</span>
+            </div>
+            <div class="canvas-boundary-spinner" id="boundary-calc-badge">
+              <span>⚡ Calculating Boundary...</span>
+            </div>
+          </div>
+          
+          <div class="canvas-legend">
+            <div class="legend-item">
+              <span class="mode-icon icon-circle-a"></span>
+              <span>Class A (Training)</span>
+            </div>
+            <div class="legend-item">
+              <span class="mode-icon icon-triangle-b"></span>
+              <span>Class B (Training)</span>
+            </div>
+            <div class="legend-item">
+              <span class="mode-icon icon-diamond-test"></span>
+              <span>Test Point (Query)</span>
+            </div>
+            <div class="legend-item">
+              <span style="display:inline-block; width:12px; height:2px; background:var(--cyan); box-shadow:0 0 6px var(--cyan);"></span>
+              <span>K-Nearest Vectors</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Results & Neighbors Column -->
+        <div class="glass-card results-panel">
+          <div class="prediction-card pred-none" id="pred-card">
+            <div class="pred-header">Live Model Inference</div>
+            <div class="pred-result none" id="pred-result-text">Awaiting Data</div>
+            <div class="pred-votes-bar">
+              <div class="pred-votes-fill-a" id="pred-fill-a" style="width: 50%;"></div>
+              <div class="pred-votes-fill-b" id="pred-fill-b" style="width: 50%;"></div>
+            </div>
+            <div class="pred-vote-counts">
+              <span id="pred-votes-a">Class A: 0 votes</span>
+              <span id="pred-votes-b">Class B: 0 votes</span>
+            </div>
+          </div>
+
+          <div class="control-group">
+            <span class="control-label">
+              <span>K-Nearest Neighbors Table</span>
+              <span style="font-size: 0.72rem; color: var(--cyan-glow);" id="effective-k-label">Ranked by Distance</span>
+            </span>
+            <div class="table-container">
+              <table class="neighbor-table" id="neighbor-table">
+                <thead>
+                  <tr>
+                    <th>Rank</th>
+                    <th>Class</th>
+                    <th>Coords</th>
+                    <th>Distance</th>
+                  </tr>
+                </thead>
+                <tbody id="neighbor-table-body">
+                  <tr>
+                    <td colspan="4" style="text-align: center; color: var(--text-muted); padding: 1rem;">No query or training data</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="tie-rule-box" id="prediction-explanation-box">
+            <strong>Inference Status:</strong>
+            <span id="prediction-msg">Add training points and place a test point to view live KNN evaluation.</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- HOW THE MACHINE THINKS (5 STEPS + FORMULAS) -->
+  <section id="how-it-works">
+    <div class="container">
+      <div class="section-title">How the Machine Thinks</div>
+      <div class="section-subtitle">
+        KNN is an instance-based, memory-based lazy learner. Rather than building an explicit abstract model during training, it executes 5 deterministic mathematical steps at inference time.
+      </div>
+
+      <!-- 5 Step Flow -->
+      <div class="machine-steps-grid">
+        <div class="step-card active-step" id="step-card-1">
+          <div class="step-num">1</div>
+          <div class="step-title">Receive Test Point</div>
+          <div class="step-desc">Accepts the unlabelled query point coordinates (x_test, y_test) in feature space.</div>
+          <div class="step-data-preview" id="step-preview-1">P = (?, ?)</div>
+        </div>
+        <div class="step-card" id="step-card-2">
+          <div class="step-num">2</div>
+          <div class="step-title">Calculate Distances</div>
+          <div class="step-desc">Computes metric distance from query point to every single training point.</div>
+          <div class="step-data-preview" id="step-preview-2">N = 0 distances</div>
+        </div>
+        <div class="step-card" id="step-card-3">
+          <div class="step-num">3</div>
+          <div class="step-title">Select Top K</div>
+          <div class="step-desc">Sorts distances in ascending order and isolates the K closest training points.</div>
+          <div class="step-data-preview" id="step-preview-3">Top K = [ ... ]</div>
+        </div>
+        <div class="step-card" id="step-card-4">
+          <div class="step-num">4</div>
+          <div class="step-title">Count Class Votes</div>
+          <div class="step-desc">Tally the class labels among the K neighbors (e.g., 2 votes A, 1 vote B).</div>
+          <div class="step-data-preview" id="step-preview-4">Votes: A=0, B=0</div>
+        </div>
+        <div class="step-card" id="step-card-5">
+          <div class="step-num">5</div>
+          <div class="step-title">Predict Majority</div>
+          <div class="step-desc">Assigns the query sample to the winning class, applying tie-breakers if even.</div>
+          <div class="step-data-preview" id="step-preview-5">Class: —</div>
+        </div>
+      </div>
+
+      <!-- Math Formula & Worked Example -->
+      <div class="math-section">
+        <div class="formula-box">
+          <h3 style="font-size:1.15rem; font-weight:700; color:white; margin-bottom:0.5rem;">📐 Distance Metrics Formulation</h3>
+          <p style="color:var(--text-muted); font-size:0.86rem; margin-bottom:0.5rem;">
+            KNN measures distance geometrically in n-dimensional space. In our 2D feature space:
+          </p>
+
+          <div class="formula-display">
+            d<sub>Euclidean</sub> = √((x₂ − x₁)² + (y₂ − y₁)²)
+          </div>
+
+          <table class="symbol-table">
+            <tr>
+              <td class="symbol-name">d</td>
+              <td>Straight-line Euclidean distance (L₂ norm) between points.</td>
+            </tr>
+            <tr>
+              <td class="symbol-name">(x₁, y₁)</td>
+              <td>Coordinates of the query (test) data point.</td>
+            </tr>
+            <tr>
+              <td class="symbol-name">(x₂, y₂)</td>
+              <td>Coordinates of a candidate training data point.</td>
+            </tr>
+            <tr>
+              <td class="symbol-name">Δx, Δy</td>
+              <td>Coordinate differences along feature axes 1 and 2.</td>
+            </tr>
+          </table>
+
+          <div style="margin-top:1.2rem;">
+            <div class="formula-display" style="font-size:1.1rem; border-color:rgba(168, 85, 247, 0.3);">
+              d<sub>Manhattan</sub> = |x₂ − x₁| + |y₂ − y₁|
+            </div>
+            <p style="color:var(--text-muted); font-size:0.82rem; margin-top:0.3rem;">
+              <strong>Why Metric Matters:</strong> Manhattan (taxicab / L₁ norm) calculates rectilinear distance as if traveling on grid streets. It does not square differences, making it significantly less sensitive to extreme outliers than Euclidean distance. Switching metrics can alter neighbor ordering and flip predictions!
+            </p>
+          </div>
+        </div>
+
+        <div class="worked-example-box">
+          <h3 style="font-size:1.15rem; font-weight:700; color:white; margin-bottom:0.5rem;">🔍 Real-time Worked Math Example</h3>
+          <p style="color:var(--text-muted); font-size:0.86rem; margin-bottom:0.8rem;">
+            Real calculation between the current query point and the #1 closest training point:
+          </p>
+
+          <div id="worked-example-content">
+            <div class="calc-step">1. Query point: P₁ = (x₁, y₁)</div>
+            <div class="calc-step">2. Nearest sample: P₂ = (x₂, y₂) [Class]</div>
+            <div class="calc-step">3. Δx = (x₂ - x₁), Δy = (y₂ - y₁)</div>
+            <div class="calc-step">4. Computation: distance = ...</div>
+          </div>
+
+          <div style="margin-top:1.2rem; background:rgba(255,255,255,0.03); padding:0.8rem; border-radius:8px;">
+            <h4 style="font-size:0.88rem; color:var(--cyan-glow); margin-bottom:0.25rem;">Training Data vs Test Point</h4>
+            <p style="font-size:0.82rem; color:var(--text-muted); line-height:1.45;">
+              <strong>Training Data:</strong> The memory bank of known ground-truth samples that the algorithm references.<br>
+              <strong>Test Point:</strong> A novel, unlabelled sample whose ground truth is unknown and must be classified by polling its neighbors.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- GUIDED EXPERIMENTS SECTION -->
+  <section id="experiments">
+    <div class="container">
+      <div class="section-title">Guided Experiments</div>
+      <div class="section-subtitle">
+        Hands-on laboratory experiments designed for computer engineering students to observe critical machine learning behaviors.
+      </div>
+
+      <div class="experiments-grid">
+        <!-- Exp A -->
+        <div class="experiment-card">
+          <div class="badge exp-badge">Experiment A</div>
+          <h3>Change Hyperparameter K</h3>
+          <p>
+            Observe how prediction changes when K is varied while the test point stays fixed. Watch the model shift from capturing high-variance local noise to smooth global majority consensus.
+          </p>
+          <div class="exp-callout">
+            <strong>Expected Result:</strong> Near the cluster boundary, at K=1 the prediction is Class B. As K steps to 5 and 9, the broader Class A cluster overrules it!
+          </div>
+          <button class="btn-primary" id="btn-run-exp-a" style="font-size:0.9rem; padding:0.65rem 1rem;">
+            <span>Run Experiment A</span>
+            <span>▶</span>
+          </button>
+        </div>
+
+        <!-- Exp B -->
+        <div class="experiment-card">
+          <div class="badge exp-badge" style="border-color:rgba(168,85,247,0.4); color:var(--purple-glow);">Experiment B</div>
+          <h3>Add More Data Points</h3>
+          <p>
+            Demonstrates data sensitivity. Starts with a test point classified as Class A. Then, a cluster of new Class B training samples arrives nearby, decisively flipping the prediction.
+          </p>
+          <div class="exp-callout">
+            <strong>Expected Result:</strong> Step 1 classifies as Class A. Step 2 injects close-range Class B samples, immediately flipping majority vote to Class B!
+          </div>
+          <button class="btn-primary" id="btn-run-exp-b" style="font-size:0.9rem; padding:0.65rem 1rem; background:linear-gradient(135deg, var(--purple), var(--orange));">
+            <span>Run Experiment B</span>
+            <span>▶</span>
+          </button>
+        </div>
+
+        <!-- Exp C -->
+        <div class="experiment-card">
+          <div class="badge exp-badge" style="border-color:rgba(249,115,22,0.4); color:var(--orange-glow);">Experiment C</div>
+          <h3>Explore Decision Boundary</h3>
+          <p>
+            Activates the full-grid decision boundary overlay. Visualizes the continuous classification manifold and demonstrates how moving a single point reshapes the boundary.
+          </p>
+          <div class="exp-callout">
+            <strong>Expected Result:</strong> Activates boundary grid, sets balanced data, and shows smooth color regions dividing Class A from Class B in feature space.
+          </div>
+          <button class="btn-primary" id="btn-run-exp-c" style="font-size:0.9rem; padding:0.65rem 1rem; background:linear-gradient(135deg, var(--orange), var(--cyan));">
+            <span>Run Experiment C</span>
+            <span>▶</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- INTERACTIVE QUIZ SECTION -->
+  <section id="quiz">
+    <div class="container">
+      <div class="section-title" style="text-align: center;">Test Your KNN Knowledge</div>
+      <div class="section-subtitle" style="text-align: center; margin-left: auto; margin-right: auto;">
+        Test your understanding of non-parametric learning, distance metrics, bias-variance tradeoffs, and hyperparameters.
+      </div>
+
+      <div class="quiz-card" id="quiz-card">
+        <div class="quiz-progress-bar">
+          <div class="quiz-progress-fill" id="quiz-progress-bar"></div>
+        </div>
+
+        <div class="quiz-meta">
+          <span id="quiz-question-counter">Question 1 of 5</span>
+          <span id="quiz-score-badge">Score: 0 / 0</span>
+        </div>
+
+        <div class="quiz-question" id="quiz-question-text">
+          What does the hyperparameter 'K' represent in the K-Nearest Neighbors algorithm?
+        </div>
+
+        <div class="quiz-options" id="quiz-options-container">
+          <!-- Rendered dynamically -->
+        </div>
+
+        <div class="quiz-feedback" id="quiz-feedback">
+          <!-- Explanation appears after answering -->
+        </div>
+
+        <div class="quiz-actions">
+          <button class="btn-primary" id="btn-quiz-next" style="display:none; font-size:0.95rem; padding:0.6rem 1.4rem;">Next Question →</button>
+          <button class="btn-primary" id="btn-quiz-restart" style="display:none; font-size:0.95rem; padding:0.6rem 1.4rem;">Restart Quiz ↺</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- REAL WORLD APPLICATIONS & LIMITATIONS SECTION -->
+  <section class="info-section">
+    <div class="container">
+      <div class="two-col-grid">
+        <!-- Real world applications -->
+        <div class="glass-card">
+          <h3 style="font-size: 1.35rem; font-weight: 800; color: white; margin-bottom: 1.25rem; display:flex; align-items:center; gap:0.5rem;">
+            <span>🌐</span> Real-World Applications
+          </h3>
+
+          <div class="app-card">
+            <div class="app-icon">🩺</div>
+            <div class="app-content">
+              <h4>Medical Diagnostics</h4>
+              <p>Predicting clinical conditions (e.g. benign vs. malignant tumor biopsy) by comparing patient biochemical biomarkers against historical patient profiles.</p>
+            </div>
+          </div>
+
+          <div class="app-card">
+            <div class="app-icon">🎬</div>
+            <div class="app-content">
+              <h4>Collaborative Recommendation Engines</h4>
+              <p>Finding "nearest neighbors" in high-dimensional user-preference space to recommend movies, books, or products enjoyed by similar consumers.</p>
+            </div>
+          </div>
+
+          <div class="app-card">
+            <div class="app-icon">✍️</div>
+            <div class="app-content">
+              <h4>Handwriting & Pattern Recognition</h4>
+              <p>Classifying handwritten digits (e.g. MNIST dataset) and optical characters by evaluating pixel density similarities against known glyph templates.</p>
+            </div>
+          </div>
+
+          <div class="app-card">
+            <div class="app-icon">👥</div>
+            <div class="app-content">
+              <h4>Customer Segmentation</h4>
+              <p>Categorizing customer purchasing behaviors. <em>Note:</em> KNN is primarily a <strong>supervised</strong> classification tool; customer segmentation is more commonly performed using unsupervised clustering algorithms like K-Means.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Limitations of KNN -->
+        <div class="glass-card">
+          <h3 style="font-size: 1.35rem; font-weight: 800; color: white; margin-bottom: 1.25rem; display:flex; align-items:center; gap:0.5rem;">
+            <span>⚠️</span> Critical Limitations of KNN
+          </h3>
+
+          <div class="app-card">
+            <div class="app-icon">💻</div>
+            <div class="app-content">
+              <h4>High Computational Cost at Inference (O(N·d))</h4>
+              <p>Because KNN performs no prior training computations ("lazy"), it must compute distances to <em>every</em> stored sample during test time, making large datasets slow without KD-trees or Ball-trees.</p>
+            </div>
+          </div>
+
+          <div class="app-card">
+            <div class="app-icon">📏</div>
+            <div class="app-content">
+              <h4>Extreme Sensitivity to Feature Scaling</h4>
+              <p>Features with larger numerical ranges dominate distance calculations (e.g., Annual Salary in thousands vs Age in tens). Normalization or standardization (Z-score) is mandatory.</p>
+            </div>
+          </div>
+
+          <div class="app-card">
+            <div class="app-icon">⚖️</div>
+            <div class="app-content">
+              <h4>Critical Choice of Hyperparameter K</h4>
+              <p><strong>Small K (e.g. K=1):</strong> Low bias but very high variance (overfitting; extremely sensitive to random noise).<br>
+                 <strong>Large K:</strong> High bias (underfitting; blurs decision boundaries and biases predictions toward dominant classes).</p>
+            </div>
+          </div>
+
+          <div class="app-card">
+            <div class="app-icon">🌌</div>
+            <div class="app-content">
+              <h4>Curse of Dimensionality</h4>
+              <p>As feature dimensions grow, volume expands exponentially and data points become equidistant from one another, breaking distance-based discrimination.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ML Glossary -->
+      <div style="margin-top: 3rem;">
+        <h3 style="font-size: 1.35rem; font-weight: 800; color: white; margin-bottom: 0.5rem;">📖 Essential Machine Learning Glossary</h3>
+        <p style="color: var(--text-muted); font-size: 0.9rem;">Quick reference for core concepts encountered in KNN and non-parametric modeling.</p>
+
+        <div class="glossary-grid">
+          <div class="glossary-item">
+            <div class="glossary-term">⚡ Lazy Learner</div>
+            <div class="glossary-def">An algorithm that delays model training computation until inference time when a query point is evaluated.</div>
+          </div>
+          <div class="glossary-item">
+            <div class="glossary-term">📊 Non-Parametric</div>
+            <div class="glossary-def">Does not make rigid mathematical assumptions regarding the underlying distribution or form of the data mapping function.</div>
+          </div>
+          <div class="glossary-item">
+            <div class="glossary-term">🎯 Hyperparameter</div>
+            <div class="glossary-def">A parameter whose value is set before the learning process begins (such as K or distance metric choice), rather than learned from data.</div>
+          </div>
+          <div class="glossary-item">
+            <div class="glossary-term">🗺️ Decision Boundary</div>
+            <div class="glossary-def">A geometric surface or partition in feature space that separates different class label predictions.</div>
+          </div>
+          <div class="glossary-item">
+            <div class="glossary-term">📉 Overfitting</div>
+            <div class="glossary-def">Fitting training noise too closely (occurs when K=1), resulting in poor generalization on unseen test data.</div>
+          </div>
+          <div class="glossary-item">
+            <div class="glossary-term">📈 Underfitting</div>
+            <div class="glossary-def">Oversimplifying the pattern (occurs when K is too large), causing the model to miss genuine class structure.</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="container">
+      <p style="font-weight: 600; color: #cbd5e1; margin-bottom: 0.35rem;">KNN LAB — Interactive Machine Learning Educational Platform</p>
+      <p>Designed for Computer Engineering Activities • Pure Vanilla JS & HTML5 Canvas • Fully Deterministic AI</p>
+    </div>
+  </footer>
+
+  <!-- ----------------------------------------------------
+       JAVASCRIPT LOGIC
+       ---------------------------------------------------- -->
+  <script>
+    (function () {
+      "use strict";
+
+      /* ====================================================
+         STATE MANAGEMENT
+         ==================================================== */
+      const state = {
+        mode: 'A', // 'A', 'B', 'TEST'
+        k: 3,
+        metric: 'euclidean', // 'euclidean', 'manhattan'
+        showBoundary: false,
+        showLines: true,
+        points: [], // { id, x, y, class: 'A' | 'B' }
+        testPoint: { x: 300, y: 300 }, // query point
+        draggedPoint: null, // reference if dragging
+        dragIsTest: false,
+        nextId: 1,
+        // Boundary caching
+        boundaryCachedImageData: null,
+        boundaryNeedsRecalc: true,
+        // Prediction info
+        currentPrediction: null,
+        rankedNeighbors: [],
+        stepAnimationTimer: null
+      };
+
+      /* ====================================================
+         DOM ELEMENTS
+         ==================================================== */
+      const canvas = document.getElementById('knn-canvas');
+      const ctx = canvas.getContext('2d');
+      const ambientCanvas = document.getElementById('ambient-canvas');
+      const heroCanvas = document.getElementById('hero-canvas');
+
+      const kSlider = document.getElementById('k-slider');
+      const kSliderVal = document.getElementById('k-slider-val');
+      const metricSelect = document.getElementById('metric-select');
+      const toggleBoundary = document.getElementById('toggle-boundary');
+      const toggleLines = document.getElementById('toggle-lines');
+
+      const modeBtnA = document.getElementById('btn-mode-a');
+      const modeBtnB = document.getElementById('btn-mode-b');
+      const modeBtnTest = document.getElementById('btn-mode-test');
+
+      const btnDemoData = document.getElementById('btn-demo-data');
+      const btnRandomData = document.getElementById('btn-random-data');
+      const btnUndoPoint = document.getElementById('btn-undo-point');
+      const btnResetTrain = document.getElementById('btn-reset-train');
+      const btnResetAll = document.getElementById('btn-reset-all');
+
+      const statTotalPoints = document.getElementById('stat-total-points');
+      const statClassA = document.getElementById('stat-class-a');
+      const statClassB = document.getElementById('stat-class-b');
+      const statKVal = document.getElementById('stat-k-val');
+      const statPredicted = document.getElementById('stat-predicted');
+      const statVotesRatio = document.getElementById('stat-votes-ratio');
+
+      const predCard = document.getElementById('pred-card');
+      const predResultText = document.getElementById('pred-result-text');
+      const predFillA = document.getElementById('pred-fill-a');
+      const predFillB = document.getElementById('pred-fill-b');
+      const predVotesA = document.getElementById('pred-votes-a');
+      const predVotesB = document.getElementById('pred-votes-b');
+      const neighborTableBody = document.getElementById('neighbor-table-body');
+      const predictionMsg = document.getElementById('prediction-msg');
+      const effectiveKLabel = document.getElementById('effective-k-label');
+      const boundaryCalcBadge = document.getElementById('boundary-calc-badge');
+
+      // Math worked example DOMs
+      const workedExampleContent = document.getElementById('worked-example-content');
+      const stepPreview1 = document.getElementById('step-preview-1');
+      const stepPreview2 = document.getElementById('step-preview-2');
+      const stepPreview3 = document.getElementById('step-preview-3');
+      const stepPreview4 = document.getElementById('step-preview-4');
+      const stepPreview5 = document.getElementById('step-preview-5');
+
+      /* ====================================================
+         MATHEMATICAL & KNN FUNCTIONS (100% REAL ALGORITHM)
+         ==================================================== */
+
+      // Calculate distance between two coordinate pairs
+      function calcDistance(p1, p2, metric) {
+        const dx = p2.x - p1.x;
+        const dy = p2.y - p1.y;
+        if (metric === 'manhattan') {
+          return Math.abs(dx) + Math.abs(dy);
+        }
+        // Default Euclidean
+        return Math.sqrt(dx * dx + dy * dy);
+      }
+
+      // Execute exact KNN classification
+      function executeKNN(queryPoint, trainingPoints, kValue, metric) {
+        if (!queryPoint || trainingPoints.length === 0) {
+          return {
+            predictedClass: null,
+            neighbors: [],
+            votesA: 0,
+            votesB: 0,
+            sumDistA: 0,
+            sumDistB: 0,
+            reason: 'No training points available'
+          };
+        }
+
+        // 1. Calculate distance to all training points
+        const distanceList = trainingPoints.map(p => {
+          const d = calcDistance(queryPoint, p, metric);
+          return {
+            id: p.id,
+            x: p.x,
+            y: p.y,
+            class: p.class,
+            distance: d
+          };
+        });
+
+        // 2. Sort by distance ascending
+        distanceList.sort((a, b) => a.distance - b.distance);
+
+        // 3. Pick top K nearest
+        const effectiveK = Math.min(kValue, distanceList.length);
+        const topK = distanceList.slice(0, effectiveK);
+
+        // 4. Tally votes & calculate sum of distances for tie-breaking
+        let votesA = 0;
+        let votesB = 0;
+        let sumDistA = 0;
+        let sumDistB = 0;
+
+        topK.forEach(neighbor => {
+          if (neighbor.class === 'A') {
+            votesA++;
+            sumDistA += neighbor.distance;
+          } else {
+            votesB++;
+            sumDistB += neighbor.distance;
+          }
+        });
+
+        // 5. Determine winning class with strict tie-breaker rule
+        let predictedClass = null;
+        let reason = '';
+
+        if (votesA > votesB) {
+          predictedClass = 'A';
+          reason = `Class A wins with ${votesA} vs ${votesB} votes`;
+        } else if (votesB > votesA) {
+          predictedClass = 'B';
+          reason = `Class B wins with ${votesB} vs ${votesA} votes`;
+        } else {
+          // Tie detected: smaller sum of neighbor distances wins
+          if (sumDistA < sumDistB) {
+            predictedClass = 'A';
+            reason = `Tie (${votesA}-${votesB}): Class A wins due to smaller total distance (${sumDistA.toFixed(1)} < ${sumDistB.toFixed(1)})`;
+          } else if (sumDistB < sumDistA) {
+            predictedClass = 'B';
+            reason = `Tie (${votesA}-${votesB}): Class B wins due to smaller total distance (${sumDistB.toFixed(1)} < ${sumDistA.toFixed(1)})`;
+          } else {
+            predictedClass = 'A';
+            reason = `Tie in votes and distance: Class A default rule`;
+          }
+        }
+
+        return {
+          predictedClass,
+          neighbors: distanceList, // all ranked
+          topK,
+          votesA,
+          votesB,
+          sumDistA,
+          sumDistB,
+          effectiveK,
+          reason
+        };
+      }
+
+      /* ====================================================
+         DECISION BOUNDARY EVALUATION (FAST CANVAS GRID)
+         ==================================================== */
+      function renderDecisionBoundary() {
+        if (!state.showBoundary || state.points.length === 0) {
+          state.boundaryCachedImageData = null;
+          return;
+        }
+
+        // We compute downscaled grid for smooth performance (grid resolution: 6px cells)
+        const step = 6;
+        const width = canvas.width;
+        const height = canvas.height;
+
+        // Use offscreen canvas
+        const offCanvas = document.createElement('canvas');
+        offCanvas.width = width;
+        offCanvas.height = height;
+        const offCtx = offCanvas.getContext('2d');
+
+        // Check if only one class exists
+        const hasA = state.points.some(p => p.class === 'A');
+        const hasB = state.points.some(p => p.class === 'B');
+
+        for (let x = 0; x < width; x += step) {
+          for (let y = 0; y < height; y += step) {
+            const probe = { x: x + step / 2, y: y + step / 2 };
+            let pred = 'A';
+
+            if (!hasA) pred = 'B';
+            else if (!hasB) pred = 'A';
+            else {
+              const res = executeKNN(probe, state.points, state.k, state.metric);
+              pred = res.predictedClass || 'A';
+            }
+
+            if (pred === 'A') {
+              offCtx.fillStyle = 'rgba(59, 130, 246, 0.16)'; // Blue tint
+            } else {
+              offCtx.fillStyle = 'rgba(249, 115, 22, 0.16)'; // Orange tint
+            }
+            offCtx.fillRect(x, y, step, step);
+          }
+        }
+
+        state.boundaryCachedImageData = offCanvas;
+        state.boundaryNeedsRecalc = false;
+      }
+
+      /* ====================================================
+         CANVAS RENDERING PIPELINE
+         ==================================================== */
+      function renderCanvas() {
+        const width = canvas.width;
+        const height = canvas.height;
+
+        // Clear canvas
+        ctx.clearRect(0, 0, width, height);
+
+        // 1. Draw cached decision boundary if enabled
+        if (state.showBoundary) {
+          if (state.boundaryNeedsRecalc) {
+            renderDecisionBoundary();
+          }
+          if (state.boundaryCachedImageData) {
+            ctx.drawImage(state.boundaryCachedImageData, 0, 0);
+          }
+        }
+
+        // 2. Draw subtle coordinate grid & axes
+        drawGridAndAxes(width, height);
+
+        // Run current KNN inference
+        const knnResult = executeKNN(state.testPoint, state.points, state.k, state.metric);
+        state.currentPrediction = knnResult;
+        state.rankedNeighbors = knnResult.neighbors || [];
+
+        // 3. Draw connection lines to K nearest neighbors
+        if (state.showLines && state.testPoint && knnResult.topK && knnResult.topK.length > 0) {
+          knnResult.topK.forEach((neighbor, idx) => {
+            ctx.beginPath();
+            ctx.moveTo(state.testPoint.x, state.testPoint.y);
+            ctx.lineTo(neighbor.x, neighbor.y);
+            
+            // Neon cyan or matching class line
+            if (neighbor.class === 'A') {
+              ctx.strokeStyle = 'rgba(96, 165, 250, 0.65)';
+            } else {
+              ctx.strokeStyle = 'rgba(251, 146, 60, 0.65)';
+            }
+            ctx.lineWidth = 2;
+            ctx.setLineDash([4, 4]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Neighbor index badge on line midpoint
+            const midX = (state.testPoint.x + neighbor.x) / 2;
+            const midY = (state.testPoint.y + neighbor.y) / 2;
+            ctx.beginPath();
+            ctx.arc(midX, midY, 8, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(6, 182, 212, 0.8)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            ctx.fillStyle = '#22d3ee';
+            ctx.font = '10px var(--font-mono)';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(`${idx + 1}`, midX, midY);
+          });
+        }
+
+        // 4. Draw training data points
+        state.points.forEach(pt => {
+          // Highlight if in top K
+          const isTopK = knnResult.topK && knnResult.topK.some(n => n.id === pt.id);
+          drawDataPoint(pt, isTopK);
+        });
+
+        // 5. Draw test query point
+        if (state.testPoint) {
+          drawTestPoint(state.testPoint, knnResult.predictedClass);
+        }
+
+        // Update UI controls & cards
+        updateDashboard(knnResult);
+        updateHowItWorks(knnResult);
+      }
+
+      function drawGridAndAxes(w, h) {
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+        ctx.lineWidth = 1;
+
+        const gridSize = 50;
+        for (let x = 0; x <= w; x += gridSize) {
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, h);
+          ctx.stroke();
+        }
+        for (let y = 0; y <= h; y += gridSize) {
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(w, y);
+          ctx.stroke();
+        }
+
+        // Axes ticks & labels
+        ctx.fillStyle = 'rgba(148, 163, 184, 0.5)';
+        ctx.font = '9px var(--font-mono)';
+        ctx.textAlign = 'left';
+        ctx.fillText('Feature 1 (X) →', 10, h - 10);
+        ctx.save();
+        ctx.translate(15, h - 25);
+        ctx.rotate(-Math.PI / 2);
+        ctx.fillText('Feature 2 (Y) →', 0, 0);
+        ctx.restore();
+      }
+
+      function drawDataPoint(pt, isTopK) {
+        const radius = isTopK ? 9 : 7;
+
+        if (isTopK) {
+          // Glow ring
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, radius + 6, 0, Math.PI * 2);
+          ctx.fillStyle = pt.class === 'A' ? 'rgba(59, 130, 246, 0.25)' : 'rgba(249, 115, 22, 0.25)';
+          ctx.fill();
+          ctx.strokeStyle = pt.class === 'A' ? 'rgba(147, 197, 253, 0.8)' : 'rgba(253, 186, 116, 0.8)';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        }
+
+        if (pt.class === 'A') {
+          // Class A: Blue Circle
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, radius, 0, Math.PI * 2);
+          ctx.fillStyle = '#3b82f6';
+          ctx.fill();
+          ctx.strokeStyle = '#93c5fd';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        } else {
+          // Class B: Orange Triangle
+          ctx.beginPath();
+          const h = radius * 1.35;
+          ctx.moveTo(pt.x, pt.y - h);
+          ctx.lineTo(pt.x - radius, pt.y + radius * 0.7);
+          ctx.lineTo(pt.x + radius, pt.y + radius * 0.7);
+          ctx.closePath();
+          ctx.fillStyle = '#f97316';
+          ctx.fill();
+          ctx.strokeStyle = '#fdba74';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        }
+      }
+
+      function drawTestPoint(testPt, predictedClass) {
+        const size = 11;
+
+        // Outer glow
+        ctx.beginPath();
+        ctx.arc(testPt.x, testPt.y, 22, 0, Math.PI * 2);
+        const glowColor = predictedClass === 'A' ? 'rgba(59, 130, 246, 0.35)' :
+                          predictedClass === 'B' ? 'rgba(249, 115, 22, 0.35)' :
+                          'rgba(168, 85, 247, 0.35)';
+        ctx.fillStyle = glowColor;
+        ctx.fill();
+
+        // Diamond shape (Purple with predicted accent)
+        ctx.save();
+        ctx.translate(testPt.x, testPt.y);
+        ctx.rotate(Math.PI / 4);
+
+        ctx.fillStyle = '#c084fc'; // Purple diamond
+        ctx.fillRect(-size, -size, size * 2, size * 2);
+
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2.5;
+        ctx.strokeRect(-size, -size, size * 2, size * 2);
+        ctx.restore();
+
+        // Label above diamond
+        ctx.fillStyle = '#f8fafc';
+        ctx.font = 'bold 11px var(--font-sans)';
+        ctx.textAlign = 'center';
+        ctx.fillText('Test Point', testPt.x, testPt.y - 18);
+      }
+
+      /* ====================================================
+         UI UPDATES & DASHBOARDS
+         ==================================================== */
+      function updateDashboard(knn) {
+        const countA = state.points.filter(p => p.class === 'A').length;
+        const countB = state.points.filter(p => p.class === 'B').length;
+
+        statTotalPoints.textContent = state.points.length;
+        statClassA.textContent = countA;
+        statClassB.textContent = countB;
+        statKVal.textContent = state.k;
+
+        kSliderVal.textContent = state.k;
+
+        // Handle prediction card state
+        predCard.className = 'prediction-card';
+        predResultText.className = 'pred-result';
+
+        if (!state.testPoint) {
+          predCard.classList.add('pred-none');
+          predResultText.classList.add('none');
+          predResultText.textContent = 'Place Test Point';
+          statPredicted.textContent = 'None';
+          statVotesRatio.textContent = 'No test point';
+          predictionMsg.textContent = 'Click "Place Test Point" and click the canvas to position your query point.';
+        } else if (state.points.length === 0) {
+          predCard.classList.add('pred-none');
+          predResultText.classList.add('none');
+          predResultText.textContent = 'No Training Data';
+          statPredicted.textContent = 'None';
+          statVotesRatio.textContent = '0 samples';
+          predictionMsg.textContent = 'The graph is currently empty. Add Class A and Class B points or click "Demo Data".';
+        } else if (countA === 0 || countB === 0) {
+          const onlyClass = countA > 0 ? 'A' : 'B';
+          predCard.classList.add(onlyClass === 'A' ? 'pred-a' : 'pred-b');
+          predResultText.classList.add(onlyClass === 'A' ? 'a' : 'b');
+          predResultText.textContent = `Class ${onlyClass} (Only class present)`;
+          statPredicted.textContent = `Class ${onlyClass}`;
+          statVotesRatio.textContent = `Only 1 class available`;
+          predictionMsg.textContent = `Notice: Only Class ${onlyClass} exists in the training set. Add the opposite class to observe voting.`;
+        } else {
+          // Balanced/Multi-class prediction
+          const pred = knn.predictedClass;
+          predCard.classList.add(pred === 'A' ? 'pred-a' : 'pred-b');
+          predResultText.classList.add(pred === 'A' ? 'a' : 'b');
+          predResultText.innerHTML = `<span>Class ${pred}</span> <span style="font-size:1.1rem;">(${pred === 'A' ? 'Blue' : 'Orange'})</span>`;
+
+          statPredicted.textContent = `Class ${pred}`;
+          statVotesRatio.textContent = `${knn.votesA} A vs ${knn.votesB} B`;
+          predictionMsg.textContent = knn.reason;
+        }
+
+        // Update vote bar percentages
+        const totalVotes = (knn.votesA || 0) + (knn.votesB || 0);
+        if (totalVotes > 0) {
+          const pctA = Math.round((knn.votesA / totalVotes) * 100);
+          const pctB = 100 - pctA;
+          predFillA.style.width = `${pctA}%`;
+          predFillB.style.width = `${pctB}%`;
+          predVotesA.textContent = `Class A: ${knn.votesA} (${pctA}%)`;
+          predVotesB.textContent = `Class B: ${knn.votesB} (${pctB}%)`;
+        } else {
+          predFillA.style.width = '50%';
+          predFillB.style.width = '50%';
+          predVotesA.textContent = `Class A: 0 votes`;
+          predVotesB.textContent = `Class B: 0 votes`;
+        }
+
+        effectiveKLabel.textContent = `K=${state.k} (${knn.effectiveK || 0} evaluated)`;
+
+        // Update table of neighbors
+        renderNeighborsTable(knn);
+      }
+
+      function renderNeighborsTable(knn) {
+        if (!knn.neighbors || knn.neighbors.length === 0) {
+          neighborTableBody.innerHTML = `
+            <tr>
+              <td colspan="4" style="text-align: center; color: var(--text-muted); padding: 1.2rem;">
+                No query point or training data plotted.
+              </td>
+            </tr>`;
+          return;
+        }
+
+        // Show top 12 rows max
+        const rowsToShow = knn.neighbors.slice(0, 12);
+        let html = '';
+
+        rowsToShow.forEach((n, idx) => {
+          const rank = idx + 1;
+          const isK = rank <= (knn.effectiveK || 0);
+          const rowClass = isK ? (n.class === 'A' ? 'in-k class-a' : 'in-k class-b') : '';
+          const tag = n.class === 'A' 
+            ? `<span class="tag-badge tag-a">A (Circle)</span>`
+            : `<span class="tag-badge tag-b">B (Triangle)</span>`;
+
+          html += `
+            <tr class="${rowClass}">
+              <td><strong>#${rank}</strong> ${isK ? '★' : ''}</td>
+              <td>${tag}</td>
+              <td>(${Math.round(n.x)}, ${Math.round(n.y)})</td>
+              <td>${n.distance.toFixed(1)} px</td>
+            </tr>`;
+        });
+
+        neighborTableBody.innerHTML = html;
+      }
+
+      /* ====================================================
+         HOW THE MACHINE THINKS ANIMATED STEP SYNC
+         ==================================================== */
+      function updateHowItWorks(knn) {
+        if (!state.testPoint || !knn.topK) return;
+
+        // Step 1: test point coords
+        stepPreview1.textContent = `P = (${Math.round(state.testPoint.x)}, ${Math.round(state.testPoint.y)})`;
+
+        // Step 2: count
+        stepPreview2.textContent = `${state.points.length} distances evaluated`;
+
+        // Step 3: Top K distances
+        if (knn.topK.length > 0) {
+          const distSummary = knn.topK.map(k => `${k.distance.toFixed(0)}px`).join(', ');
+          stepPreview3.textContent = `[${distSummary}]`;
+        } else {
+          stepPreview3.textContent = `Top K = [ ]`;
+        }
+
+        // Step 4: Votes
+        stepPreview4.textContent = `A = ${knn.votesA}, B = ${knn.votesB}`;
+
+        // Step 5: Prediction
+        stepPreview5.textContent = knn.predictedClass ? `Predicted: Class ${knn.predictedClass}` : `Predicted: None`;
+
+        // Worked math example between test point and #1 nearest neighbor
+        if (knn.neighbors && knn.neighbors.length > 0) {
+          const nearest = knn.neighbors[0];
+          const x1 = Math.round(state.testPoint.x);
+          const y1 = Math.round(state.testPoint.y);
+          const x2 = Math.round(nearest.x);
+          const y2 = Math.round(nearest.y);
+          const dx = x2 - x1;
+          const dy = y2 - y1;
+
+          if (state.metric === 'euclidean') {
+            const sqDist = dx * dx + dy * dy;
+            const dist = Math.sqrt(sqDist).toFixed(2);
+            workedExampleContent.innerHTML = `
+              <div class="calc-step">1. Test point P₁ = (${x1}, ${y1})</div>
+              <div class="calc-step">2. Nearest neighbor P₂ = (${x2}, ${y2}) [Class ${nearest.class}]</div>
+              <div class="calc-step">3. Δx = (${x2} - ${x1}) = ${dx}, Δy = (${y2} - ${y1}) = ${dy}</div>
+              <div class="calc-step">4. d = √(${dx}² + ${dy}²) = √(${dx*dx} + ${dy*dy}) = √${sqDist} = <strong>${dist} px</strong></div>
+            `;
+          } else {
+            const manDist = (Math.abs(dx) + Math.abs(dy)).toFixed(2);
+            workedExampleContent.innerHTML = `
+              <div class="calc-step">1. Test point P₁ = (${x1}, ${y1})</div>
+              <div class="calc-step">2. Nearest neighbor P₂ = (${x2}, ${y2}) [Class ${nearest.class}]</div>
+              <div class="calc-step">3. |Δx| = |${x2} - ${x1}| = ${Math.abs(dx)}, |Δy| = |${y2} - ${y1}| = ${Math.abs(dy)}</div>
+              <div class="calc-step">4. d = |${dx}| + |${dy}| = ${Math.abs(dx)} + ${Math.abs(dy)} = <strong>${manDist} px</strong></div>
+            `;
+          }
+        } else {
+          workedExampleContent.innerHTML = `
+            <div class="calc-step">Place a test point and training points to see live distance calculations.</div>
+          `;
+        }
+
+        // Trigger brief visual sequential step highlight
+        animateMachineSteps();
+      }
+
+      function animateMachineSteps() {
+        // Clear previous animation
+        if (state.stepAnimationTimer) clearTimeout(state.stepAnimationTimer);
+
+        const steps = [
+          document.getElementById('step-card-1'),
+          document.getElementById('step-card-2'),
+          document.getElementById('step-card-3'),
+          document.getElementById('step-card-4'),
+          document.getElementById('step-card-5')
+        ];
+
+        steps.forEach(s => s.classList.remove('active-step'));
+
+        // Rapid progressive cascade
+        let i = 0;
+        function cascade() {
+          if (i > 0) steps[i - 1].classList.remove('active-step');
+          if (i < steps.length) {
+            steps[i].classList.add('active-step');
+            i++;
+            state.stepAnimationTimer = setTimeout(cascade, 100);
+          } else {
+            // Leave final step and active step highlighted
+            steps.forEach(s => s.classList.add('active-step'));
+          }
+        }
+        cascade();
+      }
+
+      /* ====================================================
+         DATASET GENERATORS & INITIALIZATION
+         ==================================================== */
+      function loadDemoDataset() {
+        state.points = [
+          // Class A cluster (Left / Top-Left)
+          { id: state.nextId++, x: 140, y: 150, class: 'A' },
+          { id: state.nextId++, x: 180, y: 190, class: 'A' },
+          { id: state.nextId++, x: 160, y: 250, class: 'A' },
+          { id: state.nextId++, x: 210, y: 140, class: 'A' },
+          { id: state.nextId++, x: 230, y: 220, class: 'A' },
+          { id: state.nextId++, x: 120, y: 280, class: 'A' },
+          { id: state.nextId++, x: 260, y: 170, class: 'A' },
+
+          // Class B cluster (Right / Bottom-Right)
+          { id: state.nextId++, x: 420, y: 380, class: 'B' },
+          { id: state.nextId++, x: 460, y: 440, class: 'B' },
+          { id: state.nextId++, x: 390, y: 470, class: 'B' },
+          { id: state.nextId++, x: 490, y: 360, class: 'B' },
+          { id: state.nextId++, x: 350, y: 390, class: 'B' },
+          { id: state.nextId++, x: 440, y: 490, class: 'B' },
+          { id: state.nextId++, x: 370, y: 440, class: 'B' }
+        ];
+
+        state.testPoint = { x: 300, y: 300 };
+        state.k = 3;
+        kSlider.value = 3;
+        state.boundaryNeedsRecalc = true;
+        renderCanvas();
+      }
+
+      function randomizeDataset() {
+        state.points = [];
+        const numPerClass = 9;
+
+        // Cluster A around (180, 200)
+        for (let i = 0; i < numPerClass; i++) {
+          const r = Math.random() * 90;
+          const theta = Math.random() * Math.PI * 2;
+          const x = Math.max(30, Math.min(570, 200 + r * Math.cos(theta)));
+          const y = Math.max(30, Math.min(570, 200 + r * Math.sin(theta)));
+          state.points.push({ id: state.nextId++, x, y, class: 'A' });
+        }
+
+        // Cluster B around (400, 380)
+        for (let i = 0; i < numPerClass; i++) {
+          const r = Math.random() * 90;
+          const theta = Math.random() * Math.PI * 2;
+          const x = Math.max(30, Math.min(570, 400 + r * Math.cos(theta)));
+          const y = Math.max(30, Math.min(570, 380 + r * Math.sin(theta)));
+          state.points.push({ id: state.nextId++, x, y, class: 'B' });
+        }
+
+        state.testPoint = { x: 300, y: 290 };
+        state.boundaryNeedsRecalc = true;
+        renderCanvas();
+      }
+
+      /* ====================================================
+         CANVAS INTERACTION: CLICK & DRAG
+         ==================================================== */
+      function getCanvasCoords(evt) {
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+
+        let clientX = evt.clientX;
+        let clientY = evt.clientY;
+
+        if (evt.touches && evt.touches.length > 0) {
+          clientX = evt.touches[0].clientX;
+          clientY = evt.touches[0].clientY;
+        }
+
+        return {
+          x: (clientX - rect.left) * scaleX,
+          y: (clientY - rect.top) * scaleY
+        };
+      }
+
+      function findNearbyPoint(coords, radius = 18) {
+        // Check test point first
+        if (state.testPoint) {
+          const dTest = Math.hypot(coords.x - state.testPoint.x, coords.y - state.testPoint.y);
+          if (dTest <= radius) {
+            return { point: state.testPoint, isTest: true };
+          }
+        }
+
+        // Check training points
+        for (let i = state.points.length - 1; i >= 0; i--) {
+          const pt = state.points[i];
+          const d = Math.hypot(coords.x - pt.x, coords.y - pt.y);
+          if (d <= radius) {
+            return { point: pt, isTest: false };
+          }
+        }
+        return null;
+      }
+
+      // Mouse / Touch handlers for Canvas
+      let isDragging = false;
+      let hasDraggedMeaningfully = false;
+      let startDragPos = { x: 0, y: 0 };
+
+      function handlePointerDown(evt) {
+        evt.preventDefault();
+        const coords = getCanvasCoords(evt);
+        startDragPos = coords;
+        hasDraggedMeaningfully = false;
+
+        const hit = findNearbyPoint(coords);
+        if (hit) {
+          isDragging = true;
+          state.draggedPoint = hit.point;
+          state.dragIsTest = hit.isTest;
+          canvas.style.cursor = 'grabbing';
+        } else {
+          isDragging = false;
+          state.draggedPoint = null;
+        }
+      }
+
+      function handlePointerMove(evt) {
+        const coords = getCanvasCoords(evt);
+
+        if (isDragging && state.draggedPoint) {
+          const moveDist = Math.hypot(coords.x - startDragPos.x, coords.y - startDragPos.y);
+          if (moveDist > 4) hasDraggedMeaningfully = true;
+
+          // Reposition dragged point within canvas bounds
+          state.draggedPoint.x = Math.max(15, Math.min(canvas.width - 15, coords.x));
+          state.draggedPoint.y = Math.max(15, Math.min(canvas.height - 15, coords.y));
+
+          state.boundaryNeedsRecalc = true;
+          renderCanvas();
+        } else {
+          // Hover cursor update
+          const hit = findNearbyPoint(coords);
+          if (hit) {
+            canvas.style.cursor = 'grab';
+          } else {
+            canvas.style.cursor = 'crosshair';
+          }
+        }
+      }
+
+      function handlePointerUp(evt) {
+        if (!isDragging && !hasDraggedMeaningfully) {
+          // Click to place
+          const coords = getCanvasCoords(evt);
+
+          if (state.mode === 'TEST') {
+            state.testPoint = { x: coords.x, y: coords.y };
+          } else {
+            state.points.push({
+              id: state.nextId++,
+              x: coords.x,
+              y: coords.y,
+              class: state.mode
+            });
+            state.boundaryNeedsRecalc = true;
+          }
+          renderCanvas();
+        } else if (isDragging && !hasDraggedMeaningfully) {
+          // If clicked on point without dragging, do nothing special
+        }
+
+        isDragging = false;
+        state.draggedPoint = null;
+        canvas.style.cursor = 'crosshair';
+      }
+
+      canvas.addEventListener('mousedown', handlePointerDown);
+      window.addEventListener('mousemove', handlePointerMove);
+      window.addEventListener('mouseup', handlePointerUp);
+
+      canvas.addEventListener('touchstart', handlePointerDown, { passive: false });
+      window.addEventListener('touchmove', handlePointerMove, { passive: false });
+      window.addEventListener('touchend', handlePointerUp);
+
+      /* ====================================================
+         CONTROL LISTENERS
+         ==================================================== */
+      // Mode buttons
+      function setMode(mode) {
+        state.mode = mode;
+        modeBtnA.classList.toggle('active', mode === 'A');
+        modeBtnB.classList.toggle('active', mode === 'B');
+        modeBtnTest.classList.toggle('active', mode === 'TEST');
+      }
+
+      modeBtnA.addEventListener('click', () => setMode('A'));
+      modeBtnB.addEventListener('click', () => setMode('B'));
+      modeBtnTest.addEventListener('click', () => setMode('TEST'));
+
+      // K Slider
+      kSlider.addEventListener('input', (e) => {
+        state.k = parseInt(e.target.value, 10);
+        state.boundaryNeedsRecalc = true;
+        renderCanvas();
+      });
+
+      // Metric select
+      metricSelect.addEventListener('change', (e) => {
+        state.metric = e.target.value;
+        state.boundaryNeedsRecalc = true;
+        renderCanvas();
+      });
+
+      // Toggles
+      toggleBoundary.addEventListener('change', (e) => {
+        state.showBoundary = e.target.checked;
+        if (state.showBoundary) {
+          boundaryCalcBadge.style.display = 'inline-flex';
+          setTimeout(() => {
+            state.boundaryNeedsRecalc = true;
+            renderCanvas();
+            boundaryCalcBadge.style.display = 'none';
+          }, 30);
+        } else {
+          renderCanvas();
+        }
+      });
+
+      toggleLines.addEventListener('change', (e) => {
+        state.showLines = e.target.checked;
+        renderCanvas();
+      });
+
+      // Action buttons
+      btnDemoData.addEventListener('click', loadDemoDataset);
+      btnRandomData.addEventListener('click', randomizeDataset);
+
+      btnUndoPoint.addEventListener('click', () => {
+        if (state.points.length > 0) {
+          state.points.pop();
+          state.boundaryNeedsRecalc = true;
+          renderCanvas();
+        }
+      });
+
+      btnResetTrain.addEventListener('click', () => {
+        state.points = [];
+        state.boundaryNeedsRecalc = true;
+        renderCanvas();
+      });
+
+      btnResetAll.addEventListener('click', () => {
+        state.points = [];
+        state.testPoint = { x: 300, y: 300 };
+        state.k = 3;
+        kSlider.value = 3;
+        state.metric = 'euclidean';
+        metricSelect.value = 'euclidean';
+        state.showBoundary = false;
+        toggleBoundary.checked = false;
+        state.showLines = true;
+        toggleLines.checked = true;
+        setMode('A');
+        state.boundaryNeedsRecalc = true;
+        renderCanvas();
+      });
+
+      /* ====================================================
+         THREE GUIDED EXPERIMENTS IMPLEMENTATION
+         ==================================================== */
+      const btnExpA = document.getElementById('btn-run-exp-a');
+      const btnExpB = document.getElementById('btn-run-exp-b');
+      const btnExpC = document.getElementById('btn-run-exp-c');
+
+      // Experiment A: Change K (Test point fixed, K steps 1 -> 9, prediction flips)
+      btnExpA.addEventListener('click', () => {
+        // Carefully designed dataset:
+        // Query at (250, 250).
+        // 1 single Class B outlier is extremely close (e.g. dist 30px) -> K=1 votes B.
+        // A tight cluster of 6 Class A points are slightly further out (dist 60-90px) -> as K reaches 5-9, A overwhelms B!
+        state.points = [
+          // Solitary B outlier near query point
+          { id: state.nextId++, x: 265, y: 245, class: 'B' },
+          // Class A dense local cluster
+          { id: state.nextId++, x: 210, y: 220, class: 'A' },
+          { id: state.nextId++, x: 200, y: 260, class: 'A' },
+          { id: state.nextId++, x: 220, y: 280, class: 'A' },
+          { id: state.nextId++, x: 190, y: 240, class: 'A' },
+          { id: state.nextId++, x: 230, y: 210, class: 'A' },
+          { id: state.nextId++, x: 180, y: 270, class: 'A' },
+          // Far B points
+          { id: state.nextId++, x: 450, y: 400, class: 'B' },
+          { id: state.nextId++, x: 480, y: 430, class: 'B' }
+        ];
+
+        state.testPoint = { x: 250, y: 250 };
+        state.metric = 'euclidean';
+        metricSelect.value = 'euclidean';
+        state.boundaryNeedsRecalc = true;
+
+        // Smooth scroll to playground
+        document.getElementById('playground').scrollIntoView({ behavior: 'smooth' });
+
+        // Animate K stepping from 1 to 9
+        let expKValues = [1, 3, 5, 7, 9];
+        let stepIdx = 0;
+
+        function stepK() {
+          if (stepIdx < expKValues.length) {
+            state.k = expKValues[stepIdx];
+            kSlider.value = state.k;
+            renderCanvas();
+            stepIdx++;
+            setTimeout(stepK, 1200);
+          }
+        }
+        stepK();
+      });
+
+      // Experiment B: Add More Data (Prediction decisively flips from A to B)
+      btnExpB.addEventListener('click', () => {
+        // Initial setup: Query at (300, 300) classified as Class A
+        state.points = [
+          { id: state.nextId++, x: 260, y: 270, class: 'A' },
+          { id: state.nextId++, x: 250, y: 320, class: 'A' },
+          { id: state.nextId++, x: 230, y: 290, class: 'A' },
+          { id: state.nextId++, x: 450, y: 450, class: 'B' }
+        ];
+
+        state.testPoint = { x: 300, y: 300 };
+        state.k = 3;
+        kSlider.value = 3;
+        state.metric = 'euclidean';
+        metricSelect.value = 'euclidean';
+        state.boundaryNeedsRecalc = true;
+
+        document.getElementById('playground').scrollIntoView({ behavior: 'smooth' });
+        renderCanvas();
+
+        // After 1.5 seconds, inject 3 new Class B points closer than Class A!
+        setTimeout(() => {
+          state.points.push(
+            { id: state.nextId++, x: 315, y: 295, class: 'B' },
+            { id: state.nextId++, x: 305, y: 320, class: 'B' },
+            { id: state.nextId++, x: 325, y: 310, class: 'B' }
+          );
+          state.boundaryNeedsRecalc = true;
+          renderCanvas();
+        }, 1600);
+      });
+
+      // Experiment C: Explore Decision Boundary (Turn on boundary & display balanced manifold)
+      btnExpC.addEventListener('click', () => {
+        loadDemoDataset();
+        state.showBoundary = true;
+        toggleBoundary.checked = true;
+        state.k = 5;
+        kSlider.value = 5;
+        state.boundaryNeedsRecalc = true;
+
+        document.getElementById('playground').scrollIntoView({ behavior: 'smooth' });
+        renderCanvas();
+      });
+
+      /* ====================================================
+         INTERACTIVE QUIZ ENGINE (5 Multiple-Choice Questions)
+         ==================================================== */
+      const quizQuestions = [
+        {
+          question: "What does the hyperparameter 'K' represent in the K-Nearest Neighbors algorithm?",
+          options: [
+            "The number of classes or labels in the training dataset",
+            "The number of nearest neighboring data points consulted to cast votes",
+            "The number of iterations used during gradient descent optimization",
+            "The dimensional size of the input feature space vectors"
+          ],
+          correct: 1,
+          explanation: "Correct! 'K' is the hyperparameter specifying how many of the closest neighboring training samples are polled to determine the majority class vote."
+        },
+        {
+          question: "Why is K-Nearest Neighbors categorized as a 'Supervised Learning' algorithm?",
+          options: [
+            "Because an instructor must supervise and manually verify every computation",
+            "Because it clusters unlabelled data without knowing ground-truth categories",
+            "Because it relies on labeled training pairs (features and known class labels) to classify queries",
+            "Because it optimizes a neural network using automatic supervisory loss gradients"
+          ],
+          correct: 2,
+          explanation: "Correct! Supervised learning methods rely on pre-labeled ground-truth training data to guide predictions on novel, unlabelled test samples."
+        },
+        {
+          question: "What is the key geometric difference between Euclidean and Manhattan distance metrics?",
+          options: [
+            "Euclidean measures straight-line distance (L₂ norm), while Manhattan measures grid-aligned taxicab distance (L₁ norm)",
+            "Manhattan distance is only valid in 1D space, while Euclidean is valid in any dimension",
+            "Euclidean distance cannot handle negative coordinates, whereas Manhattan can",
+            "Manhattan distance squares coordinate differences, giving greater weight to outliers"
+          ],
+          correct: 0,
+          explanation: "Correct! Euclidean distance calculates the straight-line 'as-the-crow-flies' distance (√((x₂-x₁)²+(y₂-y₁)²)), whereas Manhattan calculates rectilinear taxicab distance (|x₂-x₁| + |y₂-y₁|)."
+        },
+        {
+          question: "How does KNN decide the final predicted class in a standard classification task?",
+          options: [
+            "It computes the mean numerical average of the features of the K neighbors",
+            "It tallies the class labels of the K neighbors and assigns the majority vote",
+            "It randomly selects one point among the K neighbors with equal probability",
+            "It passes the points through a softmax function to generate logit probabilities"
+          ],
+          correct: 1,
+          explanation: "Correct! For classification, KNN uses majority voting among the K closest neighbors (with ties broken by distance or preset fallback rules)."
+        },
+        {
+          question: "What is the primary risk of selecting an extremely small K value (such as K = 1)?",
+          options: [
+            "The model becomes too computationally slow to evaluate",
+            "The model severely underfits the data and predicts only the global majority class",
+            "The model becomes overly sensitive to noise and outliers (high variance / overfitting)",
+            "The decision boundary becomes completely flat and linear across feature space"
+          ],
+          correct: 2,
+          explanation: "Correct! With K=1, a single noisy or mislabelled outlier will create an isolated prediction island, producing very high variance and overfitting."
+        }
+      ];
+
+      let currentQuestionIdx = 0;
+      let quizScore = 0;
+      let questionAnswered = false;
+
+      const quizQuestionCounter = document.getElementById('quiz-question-counter');
+      const quizScoreBadge = document.getElementById('quiz-score-badge');
+      const quizQuestionText = document.getElementById('quiz-question-text');
+      const quizOptionsContainer = document.getElementById('quiz-options-container');
+      const quizFeedback = document.getElementById('quiz-feedback');
+      const btnQuizNext = document.getElementById('btn-quiz-next');
+      const btnQuizRestart = document.getElementById('btn-quiz-restart');
+      const quizProgressBar = document.getElementById('quiz-progress-bar');
+
+      function loadQuizQuestion(index) {
+        questionAnswered = false;
+        btnQuizNext.style.display = 'none';
+        btnQuizRestart.style.display = 'none';
+        quizFeedback.style.display = 'none';
+
+        const q = quizQuestions[index];
+        quizQuestionCounter.textContent = `Question ${index + 1} of ${quizQuestions.length}`;
+        quizScoreBadge.textContent = `Score: ${quizScore} / ${index}`;
+        quizQuestionText.textContent = q.question;
+        quizProgressBar.style.width = `${((index + 1) / quizQuestions.length) * 100}%`;
+
+        quizOptionsContainer.innerHTML = '';
+        const letters = ['A', 'B', 'C', 'D'];
+
+        q.options.forEach((optText, optIdx) => {
+          const btn = document.createElement('button');
+          btn.className = 'quiz-opt-btn';
+          btn.innerHTML = `
+            <span class="quiz-opt-letter">${letters[optIdx]}</span>
+            <span>${optText}</span>
+          `;
+          btn.addEventListener('click', () => handleQuizAnswer(optIdx));
+          quizOptionsContainer.appendChild(btn);
+        });
+      }
+
+      function handleQuizAnswer(selectedIdx) {
+        if (questionAnswered) return;
+        questionAnswered = true;
+
+        const q = quizQuestions[currentQuestionIdx];
+        const buttons = quizOptionsContainer.querySelectorAll('.quiz-opt-btn');
+
+        // Disable all options
+        buttons.forEach((btn, idx) => {
+          btn.disabled = true;
+          if (idx === q.correct) {
+            btn.classList.add('correct');
+          } else if (idx === selectedIdx) {
+            btn.classList.add('incorrect');
+          }
+        });
+
+        quizFeedback.style.display = 'block';
+        if (selectedIdx === q.correct) {
+          quizScore++;
+          quizFeedback.style.borderLeftColor = 'var(--green)';
+          quizFeedback.innerHTML = `<strong style="color:var(--green)">✓ Correct!</strong> ${q.explanation}`;
+        } else {
+          quizFeedback.style.borderLeftColor = 'var(--red)';
+          quizFeedback.innerHTML = `<strong style="color:var(--red)">✗ Incorrect.</strong> ${q.explanation}`;
+        }
+
+        quizScoreBadge.textContent = `Score: ${quizScore} / ${currentQuestionIdx + 1}`;
+
+        if (currentQuestionIdx < quizQuestions.length - 1) {
+          btnQuizNext.style.display = 'inline-flex';
+        } else {
+          // Finished all questions
+          btnQuizNext.style.display = 'none';
+          setTimeout(showQuizSummary, 1200);
+        }
+      }
+
+      function showQuizSummary() {
+        quizProgressBar.style.width = '100%';
+        const pct = Math.round((quizScore / quizQuestions.length) * 100);
+        let feedbackMsg = '';
+        if (pct === 100) feedbackMsg = '🌟 Outstanding! You have mastered K-Nearest Neighbors theory and mathematics.';
+        else if (pct >= 80) feedbackMsg = '👏 Great job! Strong understanding of distance metrics, voting, and hyperparameters.';
+        else feedbackMsg = '📚 Good attempt! Re-read the "How the Machine Thinks" panel and try again.';
+
+        quizQuestionText.textContent = 'Quiz Complete!';
+        quizOptionsContainer.innerHTML = `
+          <div class="quiz-summary-box">
+            <div class="score-circle">${quizScore}/${quizQuestions.length}</div>
+            <h3 style="font-size:1.4rem; font-weight:800; color:white; margin-bottom:0.5rem;">${pct}% Accuracy</h3>
+            <p style="color:var(--text-muted); font-size:0.95rem; max-width:500px; margin:0 auto;">${feedbackMsg}</p>
+          </div>
+        `;
+        quizFeedback.style.display = 'none';
+        btnQuizNext.style.display = 'none';
+        btnQuizRestart.style.display = 'inline-flex';
+      }
+
+      btnQuizNext.addEventListener('click', () => {
+        currentQuestionIdx++;
+        loadQuizQuestion(currentQuestionIdx);
+      });
+
+      btnQuizRestart.addEventListener('click', () => {
+        currentQuestionIdx = 0;
+        quizScore = 0;
+        loadQuizQuestion(0);
+      });
+
+      /* ====================================================
+         HERO SECTION SYNTHETIC CLASSIFICATION ANIMATION
+         ==================================================== */
+      function initHeroAnimation() {
+        const hCanvas = heroCanvas;
+        const hCtx = hCanvas.getContext('2d');
+
+        function resizeHero() {
+          const rect = hCanvas.getBoundingClientRect();
+          hCanvas.width = rect.width;
+          hCanvas.height = rect.height;
+        }
+        resizeHero();
+        window.addEventListener('resize', resizeHero);
+
+        // Synthetic orbiting test point and clusters
+        let angle = 0;
+        const ptsA = [
+          { x: 0.25, y: 0.3 }, { x: 0.32, y: 0.4 }, { x: 0.2, y: 0.5 },
+          { x: 0.38, y: 0.25 }, { x: 0.28, y: 0.35 }
+        ];
+        const ptsB = [
+          { x: 0.72, y: 0.65 }, { x: 0.65, y: 0.75 }, { x: 0.78, y: 0.55 },
+          { x: 0.82, y: 0.7 }, { x: 0.6, y: 0.6 }
+        ];
+
+        function drawHeroFrame() {
+          const w = hCanvas.width;
+          const h = hCanvas.height;
+          if (w === 0 || h === 0) return;
+
+          hCtx.clearRect(0, 0, w, h);
+
+          // Grid
+          hCtx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
+          hCtx.lineWidth = 1;
+          for (let x = 0; x < w; x += 30) {
+            hCtx.beginPath(); hCtx.moveTo(x, 0); hCtx.lineTo(x, h); hCtx.stroke();
+          }
+          for (let y = 0; y < h; y += 30) {
+            hCtx.beginPath(); hCtx.moveTo(0, y); hCtx.lineTo(w, y); hCtx.stroke();
+          }
+
+          // Orbiting query point
+          angle += 0.015;
+          const qx = (0.5 + Math.cos(angle) * 0.24) * w;
+          const qy = (0.5 + Math.sin(angle * 1.3) * 0.24) * h;
+
+          // Draw cluster A points
+          ptsA.forEach(p => {
+            const px = p.x * w;
+            const py = p.y * h;
+            hCtx.beginPath();
+            hCtx.arc(px, py, 6, 0, Math.PI * 2);
+            hCtx.fillStyle = '#3b82f6';
+            hCtx.fill();
+            hCtx.strokeStyle = '#93c5fd';
+            hCtx.stroke();
+          });
+
+          // Draw cluster B points
+          ptsB.forEach(p => {
+            const px = p.x * w;
+            const py = p.y * h;
+            hCtx.beginPath();
+            hCtx.moveTo(px, py - 7);
+            hCtx.lineTo(px - 6, py + 5);
+            hCtx.lineTo(px + 6, py + 5);
+            hCtx.closePath();
+            hCtx.fillStyle = '#f97316';
+            hCtx.fill();
+            hCtx.strokeStyle = '#fdba74';
+            hCtx.stroke();
+          });
+
+          // Find 3 closest to qx, qy
+          const all = [
+            ...ptsA.map(p => ({ x: p.x * w, y: p.y * h, c: 'A' })),
+            ...ptsB.map(p => ({ x: p.x * w, y: p.y * h, c: 'B' }))
+          ];
+          all.sort((a, b) => Math.hypot(a.x - qx, a.y - qy) - Math.hypot(b.x - qx, b.y - qy));
+
+          // Draw neon vectors
+          const top3 = all.slice(0, 3);
+          top3.forEach(target => {
+            hCtx.beginPath();
+            hCtx.moveTo(qx, qy);
+            hCtx.lineTo(target.x, target.y);
+            hCtx.strokeStyle = 'rgba(6, 182, 212, 0.6)';
+            hCtx.lineWidth = 1.5;
+            hCtx.setLineDash([3, 3]);
+            hCtx.stroke();
+            hCtx.setLineDash([]);
+          });
+
+          // Draw Query Diamond
+          hCtx.save();
+          hCtx.translate(qx, qy);
+          hCtx.rotate(Math.PI / 4);
+          hCtx.fillStyle = '#c084fc';
+          hCtx.fillRect(-7, -7, 14, 14);
+          hCtx.strokeStyle = '#fff';
+          hCtx.lineWidth = 2;
+          hCtx.strokeRect(-7, -7, 14, 14);
+          hCtx.restore();
+
+          requestAnimationFrame(drawHeroFrame);
+        }
+        drawHeroFrame();
+      }
+
+      /* ====================================================
+         AMBIENT GLOWING PARTICLES CANVAS
+         ==================================================== */
+      function initAmbientCanvas() {
+        const aCtx = ambientCanvas.getContext('2d');
+        let particles = [];
+
+        function resizeAmbient() {
+          ambientCanvas.width = window.innerWidth;
+          ambientCanvas.height = window.innerHeight;
+          initParticles();
+        }
+
+        function initParticles() {
+          particles = [];
+          const count = Math.floor(window.innerWidth / 35);
+          for (let i = 0; i < count; i++) {
+            particles.push({
+              x: Math.random() * ambientCanvas.width,
+              y: Math.random() * ambientCanvas.height,
+              vx: (Math.random() - 0.5) * 0.4,
+              vy: (Math.random() - 0.5) * 0.4,
+              radius: Math.random() * 2 + 1,
+              color: Math.random() > 0.5 ? 'rgba(6, 182, 212, 0.25)' : 'rgba(168, 85, 247, 0.25)'
+            });
+          }
+        }
+
+        resizeAmbient();
+        window.addEventListener('resize', resizeAmbient);
+
+        function drawAmbient() {
+          aCtx.clearRect(0, 0, ambientCanvas.width, ambientCanvas.height);
+          particles.forEach(p => {
+            p.x += p.vx;
+            p.y += p.vy;
+            if (p.x < 0) p.x = ambientCanvas.width;
+            if (p.x > ambientCanvas.width) p.x = 0;
+            if (p.y < 0) p.y = ambientCanvas.height;
+            if (p.y > ambientCanvas.height) p.y = 0;
+
+            aCtx.beginPath();
+            aCtx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+            aCtx.fillStyle = p.color;
+            aCtx.fill();
+          });
+          requestAnimationFrame(drawAmbient);
+        }
+        drawAmbient();
+      }
+
+      /* ====================================================
+         INITIAL STARTUP
+         ==================================================== */
+      loadDemoDataset();
+      loadQuizQuestion(0);
+      initHeroAnimation();
+      initAmbientCanvas();
+
+    })();
+  </script>
+</body>
+</html>
